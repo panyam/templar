@@ -1,7 +1,6 @@
 package gotl
 
 import (
-	"html/template"
 	htmpl "html/template"
 	"io"
 	"log"
@@ -37,30 +36,34 @@ func (t *TemplateGroup) AddFuncs(funcs map[string]any) *TemplateGroup {
 	return t
 }
 
-func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, name string, data any) error {
-	tmpl := template.Must(t.GetHtmlTemplate(name, nil))
-	err := tmpl.ExecuteTemplate(w, name, data)
-	if err != nil {
-		log.Println("error rendering template: ", name, err)
+func (t *TemplateGroup) NewHtmlTemplate(name string, funcs map[string]any) (out *htmpl.Template) {
+	out = htmpl.New(name).Funcs(t.Funcs)
+	if funcs != nil {
+		out = out.Funcs(funcs)
 	}
-	return err
+	return out
 }
 
-func (t *TemplateGroup) GetHtmlTemplate(name string, funcs htmpl.FuncMap) (out *htmpl.Template, err error) {
-	root, err := t.Loader.Load(name, "")
-	if err != nil {
-		log.Println("Error getting template: ", name, err)
-		return nil, err
+func (t *TemplateGroup) NewTextTemplate(name string, funcs map[string]any) (out *ttmpl.Template) {
+	out = ttmpl.New(name).Funcs(t.Funcs)
+	if funcs != nil {
+		out = out.Funcs(funcs)
 	}
+	return out
+}
 
-	out = t.htmlTemplates[name]
+func (t *TemplateGroup) PreProcessTextTemplate(root *Template, funcs ttmpl.FuncMap) (out *ttmpl.Template, err error) {
+	name := root.Name
+	if name == "" {
+		name = root.Path
+	}
+	if name != "" {
+		out = t.textTemplates[name]
+	}
 	if out == nil {
 		// try and load it
-		out = htmpl.New(name).Funcs(t.Funcs)
-		if funcs != nil {
-			out = out.Funcs(funcs)
-		}
-		err = root[0].WalkTemplate(t.Loader, func(t *Template) error {
+		out = t.NewTextTemplate(name, funcs)
+		err = root.WalkTemplate(t.Loader, func(t *Template) error {
 			if t.Path == "" {
 				out, err = out.Parse(t.ParsedSource)
 				return err
@@ -74,14 +77,106 @@ func (t *TemplateGroup) GetHtmlTemplate(name string, funcs htmpl.FuncMap) (out *
 				return err
 			}
 		})
-		if err == nil {
+		if err == nil && name != "" {
+			t.textTemplates[name] = out
+		}
+	}
+	return out, err
+}
+
+func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncMap) (out *htmpl.Template, err error) {
+	name := root.Name
+	if name == "" {
+		name = root.Path
+	}
+	if name != "" {
+		out = t.htmlTemplates[name]
+	}
+	if out == nil {
+		// try and load it
+		out = htmpl.New(name).Funcs(t.Funcs)
+		if funcs != nil {
+			out = out.Funcs(funcs)
+		}
+		err = root.WalkTemplate(t.Loader, func(t *Template) error {
+			if t.Path == "" {
+				out, err = out.Parse(t.ParsedSource)
+				return err
+			} else {
+				x, err := out.Parse(t.ParsedSource)
+				if err != nil {
+					return err
+				}
+				base := filepath.Base(t.Path)
+				out, err = out.AddParseTree(base, x.Tree)
+				return err
+			}
+		})
+		if err == nil && name != "" {
 			t.htmlTemplates[name] = out
 		}
 	}
 	return out, err
 }
 
-func (g *TemplateGroup) GetTextTemplate(template string) (*ttmpl.Template, error) {
-	// TODO
-	return nil, nil
+// Preprocesses and Renders a template either as html or as text
+func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, data any, funcs map[string]any) (err error) {
+	out, err := t.PreProcessHtmlTemplate(root, funcs)
+	if err != nil {
+		return err
+	}
+	tmpl := htmpl.Must(out, err)
+	if root.Name == "" {
+		err = tmpl.Execute(w, data)
+	} else {
+		err = tmpl.ExecuteTemplate(w, root.Name, data)
+	}
+	if err != nil {
+		log.Println("error rendering template as html: ", root.Name, err)
+		return err
+	}
+	return
 }
+
+func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, data any, funcs map[string]any) (err error) {
+	out, err := t.PreProcessTextTemplate(root, funcs)
+	if err != nil {
+		return err
+	}
+	tmpl := ttmpl.Must(out, err)
+	if root.Name == "" {
+		err = tmpl.Execute(w, data)
+	} else {
+		err = tmpl.ExecuteTemplate(w, root.Name, data)
+	}
+	if err != nil {
+		log.Println("error rendering template as text: ", root.Name, err)
+	}
+	return
+}
+
+/*
+func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, name string, data any) error {
+	t2, err := t.PreProcessHtmlTemplate(name, nil)
+	if err != nil {
+		log.Println("Error loading: ", name, err)
+		panic(err)
+		return err
+	}
+	tmpl := htmpl.Must(t2, err)
+	err = tmpl.ExecuteTemplate(w, name, data)
+	if err != nil {
+		log.Println("error rendering template: ", name, err)
+	}
+	return err
+}
+
+func (t *TemplateGroup) RenderTextTemplate(w io.Writer, name string, data any) error {
+	tmpl := ttmpl.Must(t.PreProcessTextTemplate(name, nil))
+	err := tmpl.ExecuteTemplate(w, name, data)
+	if err != nil {
+		log.Println("error rendering template: ", name, err)
+	}
+	return err
+}
+*/

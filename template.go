@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	htmpl "html/template"
 	"log"
 	"os"
 	"path/filepath"
@@ -39,6 +38,9 @@ type Template struct {
 
 	// Whether there are any errors in this template
 	Error error
+
+	// Any metadata we want to extract from the template (eg FrontMatter etc)
+	Metadata map[string]any
 }
 
 func (t *Template) AddDependency(another *Template) bool {
@@ -183,9 +185,10 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	}
 
 	// First parse the macro template
-	templ, err := htmpl.New("").Funcs(fm).Delims("{{#", "#}}").Parse(string(root.RawSource))
+	templ, err := ttmpl.New("").Funcs(fm).Delims("{{#", "#}}").Parse(string(root.RawSource))
 	if err != nil {
-		log.Println("Error loading template: ", err)
+		log.Println("Error loading template: ", err, root.Path)
+		panic(err)
 
 		// TODO - We *could* Let the handler try to fix parse errors?
 		// This may not be needed as parse errors just panicking may not be the worst thing
@@ -195,7 +198,7 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	// New execute it so that all includes are evaluated
 	buff := bytes.NewBufferString("")
 	if err := templ.Execute(buff, nil); err != nil {
-		log.Println("Pre Processor Error: ", err)
+		log.Println("Pre Processor Error: ", err, root.Path)
 		root.Error = err
 		return err
 	} else {
