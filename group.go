@@ -120,37 +120,45 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 }
 
 // Preprocesses and Renders a template either as html or as text
-func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, data any, funcs map[string]any) (err error) {
+func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessHtmlTemplate(root, funcs)
 	if err != nil {
 		return err
 	}
 	tmpl := htmpl.Must(out, err)
-	if root.Name == "" {
+	name := entry
+	if name == "" {
+		name = root.Name
+	}
+	if name == "" {
 		err = tmpl.Execute(w, data)
 	} else {
-		err = tmpl.ExecuteTemplate(w, root.Name, data)
+		err = tmpl.ExecuteTemplate(w, name, data)
 	}
 	if err != nil {
-		log.Println("error rendering template as html: ", root.Name, err)
+		log.Println("error rendering template as html: ", name, err)
 		return err
 	}
 	return
 }
 
-func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, data any, funcs map[string]any) (err error) {
+func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessTextTemplate(root, funcs)
 	if err != nil {
 		return err
 	}
 	tmpl := ttmpl.Must(out, err)
-	if root.Name == "" {
+	name := entry
+	if name == "" {
+		name = root.Name
+	}
+	if name == "" {
 		err = tmpl.Execute(w, data)
 	} else {
-		err = tmpl.ExecuteTemplate(w, root.Name, data)
+		err = tmpl.ExecuteTemplate(w, name, data)
 	}
 	if err != nil {
-		log.Println("error rendering template as text: ", root.Name, err)
+		log.Println("error rendering template as text: ", name, err)
 	}
 	return
 }
