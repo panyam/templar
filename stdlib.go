@@ -155,10 +155,7 @@ func SliceArray(values any, offset, count any) any {
 	// log.Println("T: ", t, t.Kind(), reflect.Slice, reflect.Array)
 	if t.Kind() == reflect.Array || t.Kind() == reflect.Slice || t.Kind() == reflect.String {
 		// log.Println("Before Off, Cnt, Len: ", offset, count, v.Len())
-		start := ToInt(offset)
-		if start < 0 {
-			start = 0
-		}
+		start := max(0, ToInt(offset))
 		end := ToInt(count)
 		l := v.Len()
 		if end < 0 {
@@ -209,11 +206,11 @@ func Slugify(input string) string {
 	return slug
 }
 
-func ValuesToDict(values ...interface{}) (map[string]interface{}, error) {
+func ValuesToDict(values ...any) (map[string]any, error) {
 	if len(values)%2 != 0 {
 		return nil, errors.New("invalid dict call")
 	}
-	dict := make(map[string]interface{}, len(values)/2)
+	dict := make(map[string]any, len(values)/2)
 	for i := 0; i < len(values); i += 2 {
 		key, ok := values[i].(string)
 		if !ok {
