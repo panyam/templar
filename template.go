@@ -188,11 +188,7 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	templ, err := ttmpl.New("").Funcs(fm).Delims("{{#", "#}}").Parse(string(root.RawSource))
 	if err != nil {
 		log.Println("Error loading template: ", err, root.Path)
-		panic(err)
-
-		// TODO - We *could* Let the handler try to fix parse errors?
-		// This may not be needed as parse errors just panicking may not be the worst thing
-		return err
+		return panicOrError(err)
 	}
 
 	// New execute it so that all includes are evaluated
@@ -200,7 +196,7 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	if err := templ.Execute(buff, nil); err != nil {
 		log.Println("Pre Processor Error: ", err, root.Path)
 		root.Error = err
-		return err
+		return panicOrError(err)
 	} else {
 		root.ParsedSource = buff.String()
 	}
@@ -219,7 +215,7 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 		children, err := loader.Load(included, cwd)
 		if err != nil {
 			log.Println("error loading: ", included, err)
-			return err
+			return panicOrError(err)
 		}
 		for _, child := range children {
 			if child.Path != "" {
@@ -232,7 +228,7 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 			if err != nil {
 				log.Println("error walking: ", included, err)
 				root.Error = err
-				return err
+				return panicOrError(err)
 			}
 		}
 	}

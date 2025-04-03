@@ -66,15 +66,15 @@ func (t *TemplateGroup) PreProcessTextTemplate(root *Template, funcs ttmpl.FuncM
 		err = root.WalkTemplate(t.Loader, func(t *Template) error {
 			if t.Path == "" {
 				out, err = out.Parse(t.ParsedSource)
-				return err
+				return panicOrError(err)
 			} else {
 				x, err := out.Parse(t.ParsedSource)
 				if err != nil {
-					return err
+					return panicOrError(err)
 				}
 				base := filepath.Base(t.Path)
 				out, err = out.AddParseTree(base, x.Tree)
-				return err
+				return panicOrError(err)
 			}
 		})
 		if err == nil && name != "" {
@@ -101,15 +101,15 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 		err = root.WalkTemplate(t.Loader, func(t *Template) error {
 			if t.Path == "" {
 				out, err = out.Parse(t.ParsedSource)
-				return err
+				return panicOrError(err)
 			} else {
 				x, err := out.Parse(t.ParsedSource)
 				if err != nil {
-					return err
+					return panicOrError(err)
 				}
 				base := filepath.Base(t.Path)
 				out, err = out.AddParseTree(base, x.Tree)
-				return err
+				return panicOrError(err)
 			}
 		})
 		if err == nil && name != "" {
@@ -123,7 +123,7 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessHtmlTemplate(root, funcs)
 	if err != nil {
-		return err
+		return panicOrError(err)
 	}
 	tmpl := htmpl.Must(out, err)
 	name := entry
@@ -137,7 +137,8 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry st
 	}
 	if err != nil {
 		log.Println("error rendering template as html: ", name, err)
-		return err
+		panic(err)
+		return panicOrError(err)
 	}
 	return
 }
@@ -145,7 +146,7 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry st
 func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessTextTemplate(root, funcs)
 	if err != nil {
-		return err
+		return panicOrError(err)
 	}
 	tmpl := ttmpl.Must(out, err)
 	name := entry
@@ -169,14 +170,14 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, name string, data any) e
 	if err != nil {
 		log.Println("Error loading: ", name, err)
 		panic(err)
-		return err
+		return panicOrError(err)
 	}
 	tmpl := htmpl.Must(t2, err)
 	err = tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {
 		log.Println("error rendering template: ", name, err)
 	}
-	return err
+	return panicOrError(err)
 }
 
 func (t *TemplateGroup) RenderTextTemplate(w io.Writer, name string, data any) error {
@@ -185,6 +186,6 @@ func (t *TemplateGroup) RenderTextTemplate(w io.Writer, name string, data any) e
 	if err != nil {
 		log.Println("error rendering template: ", name, err)
 	}
-	return err
+	return panicOrError(err)
 }
 */
