@@ -137,7 +137,6 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry st
 	}
 	if err != nil {
 		log.Println("error rendering template as html: ", name, err)
-		panic(err)
 		return panicOrError(err)
 	}
 	return
