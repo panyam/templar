@@ -4,6 +4,7 @@ import (
 	htmpl "html/template"
 	"io"
 	"log"
+	"maps"
 	"path/filepath"
 	ttmpl "text/template"
 )
@@ -30,9 +31,7 @@ func NewTemplateGroup() *TemplateGroup {
 }
 
 func (t *TemplateGroup) AddFuncs(funcs map[string]any) *TemplateGroup {
-	for k, v := range funcs {
-		t.Funcs[k] = v
-	}
+	maps.Copy(t.Funcs, funcs)
 	return t
 }
 
@@ -60,7 +59,7 @@ func (t *TemplateGroup) PreProcessTextTemplate(root *Template, funcs ttmpl.FuncM
 	if name != "" {
 		out = t.textTemplates[name]
 	}
-	if out == nil {
+	if true || out == nil {
 		// try and load it
 		out = t.NewTextTemplate(name, funcs)
 		err = root.WalkTemplate(t.Loader, func(t *Template) error {
@@ -92,7 +91,7 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 	if name != "" {
 		out = t.htmlTemplates[name]
 	}
-	if out == nil {
+	if true || out == nil {
 		// try and load it
 		out = htmpl.New(name).Funcs(t.Funcs)
 		if funcs != nil {
@@ -162,29 +161,3 @@ func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, entry st
 	}
 	return
 }
-
-/*
-func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, name string, data any) error {
-	t2, err := t.PreProcessHtmlTemplate(name, nil)
-	if err != nil {
-		log.Println("Error loading: ", name, err)
-		panic(err)
-		return panicOrError(err)
-	}
-	tmpl := htmpl.Must(t2, err)
-	err = tmpl.ExecuteTemplate(w, name, data)
-	if err != nil {
-		log.Println("error rendering template: ", name, err)
-	}
-	return panicOrError(err)
-}
-
-func (t *TemplateGroup) RenderTextTemplate(w io.Writer, name string, data any) error {
-	tmpl := ttmpl.Must(t.PreProcessTextTemplate(name, nil))
-	err := tmpl.ExecuteTemplate(w, name, data)
-	if err != nil {
-		log.Println("error rendering template: ", name, err)
-	}
-	return panicOrError(err)
-}
-*/
