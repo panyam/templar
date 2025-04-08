@@ -226,31 +226,31 @@ func TimeSinceString(t time.Time) string {
 	diff := time.Since(t)
 
 	years := diff.Hours() / (365 * 24)
-	if years > 0 {
+	if years > 1 {
 		return fmt.Sprintf("%d years ago", int64(years))
 	}
 
 	months := diff.Hours() / (30 * 24)
-	if months > 0 {
+	if months > 1 {
 		return fmt.Sprintf("%d months ago", int64(months))
 	}
 
 	weeks := diff.Hours() / (7 * 24)
-	if weeks > 0 {
+	if weeks > 1 {
 		return fmt.Sprintf("%d weeks ago", int64(weeks))
 	}
 
 	days := diff.Hours() / (24)
-	if days > 0 {
+	if days > 1 {
 		return fmt.Sprintf("%d days ago", int64(days))
 	}
 
 	hours := diff.Hours()
-	if hours > 0 {
+	if hours > 1 {
 		return fmt.Sprintf("%d hours ago", int64(hours))
 	}
 
-	if diff.Minutes() > 0 {
+	if diff.Minutes() > 1 {
 		return fmt.Sprintf("%d minutes ago", int64(diff.Minutes()))
 	}
 
