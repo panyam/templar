@@ -2,6 +2,7 @@ package gotl
 
 import (
 	"html/template"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -60,5 +61,9 @@ func DefaultFuncMap() template.FuncMap {
 		"Slugify":   Slugify,
 		"dict":      ValuesToDict,
 		"Ago":       TimeSinceString,
+		"DBG": func(values ...any) string {
+			log.Println(values)
+			return ""
+		},
 	}
 }
