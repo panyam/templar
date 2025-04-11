@@ -1,0 +1,9 @@
+{{ define "featured" }}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">{{ .Featured.Title }}</h5>
+        <p class="card-text">{{ .Featured.Description }}</p>
+        <a href="{{ .Featured.URL }}" class="btn btn-primary">Read More</a>
+    </div>
+</div>
+{{ end }}

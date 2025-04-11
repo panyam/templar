@@ -1,0 +1,24 @@
+{{# include "layouts/mobile-base.tmpl" #}}
+{{# include "components/mobile-nav.tmpl" #}}
+
+{{ define "title" }}{{.Title}} - Mobile View{{ end }}
+
+{{ define "content" }}
+<div class="mobile-container">
+  <h1 class="mobile-header">Welcome, {{.User.Name}}!</h1>
+  
+  <div class="mobile-section">
+    <h3>Latest Updates</h3>
+    <div class="mobile-list">
+      {{ range .Updates }}
+        <div class="mobile-list-item">
+          <strong>{{ .Title }}</strong>
+          <span class="mobile-date">{{ .Date }}</span>
+        </div>
+      {{ end }}
+    </div>
+  </div>
+
+  {{ template "mobile-featured" . }}
+</div>
+{{ end }}

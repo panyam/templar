@@ -1,0 +1,45 @@
+{{ define "mobile-nav" }}
+<div class="mobile-nav">
+  <div class="mobile-nav-header">
+    <div class="mobile-nav-logo">My Website</div>
+    <button class="mobile-nav-toggle" id="navToggle">
+      <span class="mobile-nav-icon">☰</span>
+    </button>
+  </div>
+  
+  <div class="mobile-nav-menu" id="navMenu">
+    <a href="/" class="mobile-nav-item">Home</a>
+    <a href="/products" class="mobile-nav-item">Products</a>
+    <a href="/about" class="mobile-nav-item">About</a>
+    <a href="/contact" class="mobile-nav-item">Contact</a>
+    
+    {{ if .User }}
+      <div class="mobile-nav-user">
+        <div class="mobile-nav-username">{{ .User.Name }}</div>
+        <a href="/profile" class="mobile-nav-item">Profile</a>
+        <a href="/settings" class="mobile-nav-item">Settings</a>
+        <a href="/logout" class="mobile-nav-item">Logout</a>
+      </div>
+    {{ else }}
+      <a href="/login" class="mobile-nav-item mobile-nav-login">Login</a>
+    {{ end }}
+  </div>
+</div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', function() {
+    document.getElementById('navMenu').classList.toggle('mobile-nav-menu-open');
+  });
+</script>
+{{ end }}
+
+{{ define "mobile-featured" }}
+<div class="mobile-featured">
+  <h3>Featured</h3>
+  <div class="mobile-featured-content">
+    <h4>{{ .Featured.Title }}</h4>
+    <p>{{ .Featured.Description }}</p>
+    <a href="{{ .Featured.URL }}" class="mobile-featured-button">View</a>
+  </div>
+</div>
+{{ end }}

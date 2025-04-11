@@ -61,6 +61,8 @@ func renderIndexPage(w http.ResponseWriter, r *http.Request) {
 
 ## Quick Start
 
+### [Example 1](https://github.com/panyam/templar/blob/main/examples/example1)
+
 ```go
 package main
 
@@ -89,7 +91,7 @@ func main() {
     // Render the template to stdout
     err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", map[string]any{
         "Title": "My Homepage",
-        "User":  currentUser,
+        "User":  "Wonder Woman",
     }, nil)
     if err != nil {
         panic(err)

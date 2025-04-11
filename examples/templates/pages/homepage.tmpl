@@ -1,0 +1,27 @@
+{{# include "layouts/base.tmpl" #}}
+{{# include "components/navbar.tmpl" #}}
+{{# include "components/featured.tmpl" #}}
+
+{{ define "title" }}{{.Title}} - My Website{{ end }}
+
+{{ define "content" }}
+  <div class="container py-5">
+    <h1>Welcome to our site, {{.User.Name}}!</h1>
+    <p class="lead">This is the homepage content.</p>
+    
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <h3>Recent Updates</h3>
+        <ul class="list-group">
+          {{ range .Updates }}
+            <li class="list-group-item">{{ .Title }} - {{ .Date }}</li>
+          {{ end }}
+        </ul>
+      </div>
+      <div class="col-md-6">
+        <h3>Featured Content</h3>
+        {{ template "featured" . }}
+      </div>
+    </div>
+  </div>
+{{ end }}

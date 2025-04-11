@@ -1,0 +1,65 @@
+{{ define "sidebar" }}
+<div class="sidebar bg-light p-3" style="height: calc(100vh - 56px);">
+  <div class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+    <span class="fs-4">Dashboard</span>
+  </div>
+  <hr>
+  <ul class="nav nav-pills flex-column mb-auto">
+    <li class="nav-item">
+      <a href="/dashboard" class="nav-link active" aria-current="page">
+        <i class="bi bi-house-door me-2"></i>
+        Overview
+      </a>
+    </li>
+    <li>
+      <a href="/projects" class="nav-link link-dark">
+        <i class="bi bi-folder me-2"></i>
+        Projects
+      </a>
+    </li>
+    <li>
+      <a href="/tasks" class="nav-link link-dark">
+        <i class="bi bi-check-square me-2"></i>
+        Tasks
+      </a>
+    </li>
+    <li>
+      <a href="/calendar" class="nav-link link-dark">
+        <i class="bi bi-calendar3 me-2"></i>
+        Calendar
+      </a>
+    </li>
+    <li>
+      <a href="/team" class="nav-link link-dark">
+        <i class="bi bi-people me-2"></i>
+        Team
+      </a>
+    </li>
+    <li>
+      <a href="/analytics" class="nav-link link-dark">
+        <i class="bi bi-graph-up me-2"></i>
+        Analytics
+      </a>
+    </li>
+    <li>
+      <a href="/files" class="nav-link link-dark">
+        <i class="bi bi-file-earmark me-2"></i>
+        Files
+      </a>
+    </li>
+  </ul>
+  <hr>
+  <div class="dropdown">
+    <a href="#" class="d-flex align-items-center link-dark text-decoration-none dropdown-toggle" id="dropdownUser2" data-bs-toggle="dropdown" aria-expanded="false">
+      <img src="https://via.placeholder.com/32" alt="" width="32" height="32" class="rounded-circle me-2">
+      <strong>{{ .User.Name }}</strong>
+    </a>
+    <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
+      <li><a class="dropdown-item" href="/profile">Profile</a></li>
+      <li><a class="dropdown-item" href="/settings">Settings</a></li>
+      <li><hr class="dropdown-divider"></li>
+      <li><a class="dropdown-item" href="/logout">Sign out</a></li>
+    </ul>
+  </div>
+</div>
+{{ end }}

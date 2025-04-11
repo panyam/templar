@@ -3,6 +3,7 @@ package templar
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,6 +90,8 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 			}
 		}
 	}
+	log.Println("Template not found: %s, CWD: %s", name, cwd)
+	slog.Warn("Template not found", "name", name, "cwd", cwd)
 	return nil, TemplateNotFound
 }
 
