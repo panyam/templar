@@ -1,4 +1,4 @@
-package gotl
+package templar
 
 import (
 	htmpl "html/template"
