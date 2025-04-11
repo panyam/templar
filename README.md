@@ -59,6 +59,15 @@ func renderIndexPage(w http.ResponseWriter, r *http.Request) {
 
 4. **Template Reuse**: The same template name can be reused in different contexts without conflict.
 
+## Why Templar?
+
+Templar is designed to integrate smoothly with Go's standard templating libraries while solving common issues:
+
+1. **Minimal Learning Curve**: If you know Go templates, you already know 99% of Templar.
+2. **Zero New Runtime Syntax**: The include directives are processed before rendering.
+3. **Flexible and Extensible**: Create custom loaders for any template source.
+4. **Production Ready**: Handles complex dependencies, prevents cycles, and provides clear error messages.
+
 ## Quick Start
 
 ### [Example 1](https://github.com/panyam/templar/blob/main/examples/example1)
@@ -152,7 +161,11 @@ group.AddFuncs(map[string]any{
 You can implement conditional template loading based on application state:
 
 ```go
-tmpl, err := loader.Load(isMobile ? "mobile/homepage.tmpl" : "desktop/homepage.tmpl", "")
+folder := "desktop"
+if isMobile {
+  folder = "mobile"
+}
+tmpl, err := loader.Load(fmt.Sprintf("%s/homepage.tmpl", folder))
 ```
 
 ### Dynamic Templates
@@ -170,23 +183,24 @@ group.RenderTextTemplate(w, dynamicTemplate, "", map[string]any{"Name": "World"}
 
 ## Comparison with Other Solutions
 
-| Feature | Standard Go Templates | go-template-helpers | pongo2 | Templar |
-|---------|----------------------|---------------------|--------|------|
-| Dependency Management | ❌ | ⚠️ Partial | ❌ | ✅ |
-| Self-describing Templates | ❌ | ❌ | ❌ | ✅ |
-| Standard Go Template Syntax | ✅ | ✅ | ❌ | ✅ |
-| Supports Cycles Prevention | ❌ | ❌ | ❌ | ✅ |
-| HTML Escaping | ✅ | ✅ | ✅ | ✅ |
-| Template Grouping | ⚠️ Partial | ⚠️ Partial | ✅ | ✅ |
+| Feature                     | Standard Go Templates | Templar |
+|-----------------------------|-----------------------|---------|
+| Dependency Management       | ❌                    | ✅      |
+| Self-describing Templates   | ❌                    | ✅      |
+| Standard Go Template Syntax | ✅                    | ✅      |
+| Supports Cycles Prevention  | ❌                    | ✅      |
+| HTML Escaping               | ✅                    | ✅      |
+| Template Grouping           | ⚠️ Partial             | ✅      |
 
-## Why Templar?
+### Other alternatives
 
-Templar is designed to integrate smoothly with Go's standard templating libraries while solving common issues:
+* [Pongo2](https://github.com/flosch/pongo2) is amazing for its reverence for Django syntax.
+* [Templ](https://github.com/a-h/templ) is amazing as a typed template library and being able to perform compile time validations of templates. 
 
-1. **Minimal Learning Curve**: If you know Go templates, you already know 99% of Templar.
-2. **Zero New Runtime Syntax**: The include directives are processed before rendering.
-3. **Flexible and Extensible**: Create custom loaders for any template source.
-4. **Production Ready**: Handles complex dependencies, prevents cycles, and provides clear error messages.
+My primary goal here was to have as much alignment with Go's template stdlib.   Beyond this library for managing
+dependencies, the goal itself was to have strict adherence to Go's templating syntax.   Using the same Go template
+syntax also allows extra features during preprocessing of templates.  (eg using same set of variables for both
+pre-processing as well as for final rendering).
 
 ## Contributing
 
