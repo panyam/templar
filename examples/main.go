@@ -44,7 +44,7 @@ func main() {
 	})
 
 	// Example of using a loader list with fallbacks
-	err := os.MkdirAll("./output", 755)
+	err := os.MkdirAll("./output", 0755)
 	if err != nil {
 		log.Fatal("Could not create directory: ", err)
 		panic(err)
@@ -55,7 +55,9 @@ func main() {
 	exampleLoaderList(openFile("./output/list.html"))
 
 	// Example of conditional template loading based on device
-	exampleConditionalLoading(group, openFile("./output/conditional.html"))
+	exampleConditionalLoading(true, group, openFile("./output/conditional_mobile.html"))
+
+	exampleConditionalLoading(false, group, openFile("./output/conditional_desktop.html"))
 
 	// Example of dynamic template creation
 	exampleDynamicTemplate(group, openFile("./output/dynamic.html"))
@@ -121,10 +123,7 @@ func exampleLoaderList(w io.Writer) {
 }
 
 // Example showing conditional template loading
-func exampleConditionalLoading(group *templar.TemplateGroup, w io.Writer) {
-	// Simulate device detection
-	isMobile := false // In a real app, this would be determined by user agent, etc.
-
+func exampleConditionalLoading(isMobile bool, group *templar.TemplateGroup, w io.Writer) {
 	// Choose template based on device
 	templatePath := "desktop/homepage.tmpl"
 	if isMobile {
