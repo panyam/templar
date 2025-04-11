@@ -70,7 +70,7 @@ Templar is designed to integrate smoothly with Go's standard templating librarie
 
 ## Quick Start
 
-### [Example 1](https://github.com/panyam/templar/blob/main/examples/example1)
+### [Basic Example](https://github.com/panyam/templar/blob/main/examples/main.go)
 
 ```go
 package main
@@ -81,30 +81,46 @@ import (
 )
 
 func main() {
-    // Create a filesystem loader that searches multiple directories
-    loader := templar.NewFileSystemLoader(
-        "templates/",
-        "templates/shared/",
-    )
-    
-    // Create a template group
-    group := templar.NewTemplateGroup()
-    group.Loader = loader
-    
-    // Load a root template (dependencies handled automatically)
-    rootTemplate, err := loader.Load("pages/homepage.tmpl", "")
-    if err != nil {
-        panic(err)
-    }
-    
-    // Render the template to stdout
-    err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", map[string]any{
-        "Title": "My Homepage",
-        "User":  "Wonder Woman",
-    }, nil)
-    if err != nil {
-        panic(err)
-    }
+  // Create a template group
+  group := templar.NewTemplateGroup()
+  
+  // Create a filesystem loader that searches multiple directories
+  group.Loader = templar.NewFileSystemLoader(
+      "templates/",
+      "templates/shared/",
+  )
+  
+  // Load a root template (dependencies handled automatically)
+  rootTemplate, err := loader.Load("pages/homepage.tmpl", "")
+  if err != nil {
+      panic(err)
+  }
+
+	// Prepare data for the template
+	data := map[string]any{
+		"Title": "Home Page",
+		"User": User{
+			ID:   1,
+			Name: "John Doe",
+		},
+		"Updates": []Update{
+			{Title: "New Feature Released", Date: "2023-06-15"},
+			{Title: "System Maintenance", Date: "2023-06-10"},
+			{Title: "Welcome to our New Site", Date: "2023-06-01"},
+		},
+		"Featured": FeaturedContent{
+			Title:       "Summer Sale",
+			Description: "Get 20% off on all products until July 31st!",
+			URL:         "/summer-sale",
+		},
+	}
+
+	// Render the template to stdout (for this example)
+	fmt.Println("Rendering template...")
+	err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", data, nil)
+	if err != nil {
+		fmt.Printf("Error rendering template: %v\n", err)
+	}
 }
 ```
 
