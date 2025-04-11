@@ -9,37 +9,42 @@ import (
 	ttmpl "text/template"
 )
 
+// TemplateNotFound is returned when a template could not be found by a loader.
 var TemplateNotFound = errors.New("template not found")
 
-// The template is the most basic rendered at its core.
+// Template is the basic unit of rendering that manages content and dependencies.
 type Template struct {
+	// Name is an identifier for this template.
 	Name string
 
-	// Actual template content
+	// RawSource contains the original, unprocessed template content.
 	RawSource []byte
 
-	// Source after the template has been parsed
+	// ParsedSource contains the template content after preprocessing.
 	ParsedSource string
 
-	// File name for this template (if any - ie if it was loaded from a file)
+	// Path is the file path for this template if it was loaded from a file.
 	Path string
 
-	// Whether the contents have been loaded and parsed or not
+	// Status indicates whether the template has been loaded and parsed.
 	Status int
 
-	// Whether to return a text or a html template (later ensures extra escaping)
+	// AsHtml determines whether the content should be treated as HTML (with escaping)
+	// or as plain text.
 	AsHtml bool
 
-	// Other template included in this template
+	// includes contains other templates that this template depends on.
 	includes []*Template
 
-	// Whether there are any errors in this template
+	// Error contains any error encountered during template processing.
 	Error error
 
-	// Any metadata we want to extract from the template (eg FrontMatter etc)
+	// Metadata stores extracted information from the template (e.g., FrontMatter).
 	Metadata map[string]any
 }
 
+// AddDependency adds another template as a dependency of this template.
+// It returns false if the dependency would create a cycle, true otherwise.
 func (t *Template) AddDependency(another *Template) bool {
 	if t.Path != "" {
 		for _, child := range t.includes {
@@ -53,16 +58,23 @@ func (t *Template) AddDependency(another *Template) bool {
 	return true
 }
 
+// Dependencies returns all templates that this template directly depends on.
 func (t *Template) Dependencies() []*Template {
 	return t.includes
 }
 
-// Interface for the loader which loads the content of a template from its name.
+// TemplateLoader defines an interface for loading template content by name or pattern.
 type TemplateLoader interface {
+	// Load attempts to load templates matching the given pattern.
+	// If cwd is not empty, it's used as the base directory for relative paths.
+	// Returns matching templates or an error if no templates were found.
 	Load(pattern string, cwd string) (template []*Template, err error)
 }
 
-// Walks a template starting from the root template loading
+// WalkTemplate processes a template and its dependencies recursively.
+// It starts from the root template, processes all includes with the {{# include "..." #}} directive,
+// and calls the provided handler function on each template in the dependency tree.
+// The loader is used to resolve and load included templates.
 func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template *Template) error) (err error) {
 	// Now get a list of all the includes - It doesnt matter *where* the include is - they are all collected first
 	// Given how go templates treat definitions (by name) their order doesnt matter and we dont want to change this

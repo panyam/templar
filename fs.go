@@ -8,13 +8,19 @@ import (
 	"strings"
 )
 
-// Loads templates based contents of a file system
+// FileSystemLoader loads templates from the file system based on
+// a set of directories and file extensions.
 type FileSystemLoader struct {
-	Folders    []string
+	// Folders is a list of directories to search for templates.
+	Folders []string
+
+	// Extensions is a list of file extensions to consider as templates.
 	Extensions []string
 }
 
-// Creates a new file system loader
+// NewFileSystemLoader creates a new file system loader that will search
+// in the provided folders for template files.
+// By default, it recognizes files with .tmpl, .tmplus, and .html extensions.
 func NewFileSystemLoader(folders ...string) *FileSystemLoader {
 	return &FileSystemLoader{
 		Folders: folders,
@@ -24,6 +30,11 @@ func NewFileSystemLoader(folders ...string) *FileSystemLoader {
 	}
 }
 
+// Load attempts to find and load a template with the given name.
+// If the name includes an extension, only files with that extension are considered.
+// Otherwise, files with any of the loader's recognized extensions are searched.
+// If cwd is provided, it's used for resolving relative paths.
+// Returns the loaded templates or TemplateNotFound if no matching templates were found.
 func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, err error) {
 	ext := filepath.Ext(name)
 	extensions := g.Extensions
@@ -81,19 +92,27 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 	return nil, TemplateNotFound
 }
 
-// A loader that tries all loaders and returns the first match
+// LoaderList is a composite loader that tries multiple loaders in sequence
+// and returns the first successful match.
 type LoaderList struct {
+	// DefaultLoader is used as a fallback if no other loaders succeed.
 	DefaultLoader TemplateLoader
-	loaders       []TemplateLoader
+
+	// loaders is the ordered list of template loaders to try.
+	loaders []TemplateLoader
 }
 
-// Adds a new loader to the list
+// AddLoader adds a new loader to the list of loaders to try.
+// Returns the updated LoaderList for method chaining.
 func (t *LoaderList) AddLoader(loader TemplateLoader) *LoaderList {
 	t.loaders = append(t.loaders, loader)
 	return t
 }
 
-// Gets the loader for a particular template by item by its name.
+// Load attempts to load a template with the given name by trying each loader in sequence.
+// It returns the first successful match, or falls back to the DefaultLoader if all others fail.
+// If cwd is provided, it's used for resolving relative paths.
+// Returns TemplateNotFound if no loader can find the template.
 func (t *LoaderList) Load(name string, cwd string) (matched []*Template, err error) {
 	// TODO - should we cache this?  Or is a CacheLoader just another type?
 	for _, loader := range t.loaders {
