@@ -5,7 +5,18 @@
 
 Templar is a powerful extension to Go's standard templating libraries that adds dependency management, simplifies template composition, and solves common pain points in template organization.
 
-## The Problem
+## Why Templar?
+
+Templar is designed to integrate smoothly with Go's standard templating libraries while solving common issues:
+
+1. **Minimal Learning Curve**: If you know Go templates, you already know 99% of Templar.
+2. **Zero New Runtime Syntax**: The include directives are processed before rendering (variable based inclusion in the
+   works).
+3. **Flexible and Extensible**: Create custom loaders for any template source (file loader for now, more in the works).
+4. **Production Ready**: Handles complex dependencies, prevents cycles, and provides clear error messages (and aiming to
+   get better at this).
+
+## Background
 
 Go's built-in templating libraries (`text/template` and `html/template`) are powerful but have limitations when working with complex template structures:
 
@@ -20,12 +31,12 @@ Go's built-in templating libraries (`text/template` and `html/template`) are pow
 ```go
 // Standard approach - verbose and error-prone
 func renderIndexPage(w http.ResponseWriter, r *http.Request) {
-  t := template.ParseFiles("a1.tmpl", "a2.tmpl", "IndexPage.tmpl")
+  t := template.ParseFiles("Base1.tmpl", "a2.tmpl", "IndexPage.tmpl")
   t.Execute(w, data)
 }
 
 func renderProductListPage(w http.ResponseWriter, r *http.Request) {
-  t := template.ParseFiles("a2.tmpl", "ProductListPage.tmpl")
+  t := template.ParseFiles("AnotherBase.tmpl", "a2.tmpl", "ProductListPage.tmpl")
   t.Execute(w, data)
 }
 ```
@@ -59,15 +70,6 @@ func renderIndexPage(w http.ResponseWriter, r *http.Request) {
 
 4. **Template Reuse**: The same template name can be reused in different contexts without conflict.
 
-## Why Templar?
-
-Templar is designed to integrate smoothly with Go's standard templating libraries while solving common issues:
-
-1. **Minimal Learning Curve**: If you know Go templates, you already know 99% of Templar.
-2. **Zero New Runtime Syntax**: The include directives are processed before rendering.
-3. **Flexible and Extensible**: Create custom loaders for any template source.
-4. **Production Ready**: Handles complex dependencies, prevents cycles, and provides clear error messages.
-
 ## Getting Started
 
 ### [Basic Example](https://github.com/panyam/templar/blob/main/examples/main.go)
@@ -93,29 +95,29 @@ func main() {
   // Load a root template (dependencies handled automatically)
   rootTemplate := group.MustLoad("pages/homepage.tmpl", "")
 
-	// Prepare data for the template
-	data := map[string]any{
-		"Title": "Home Page",
-		"User": User{
-			ID:   1,
-			Name: "John Doe",
-		},
-		"Updates": []Update{
-			{Title: "New Feature Released", Date: "2023-06-15"},
-			{Title: "System Maintenance", Date: "2023-06-10"},
-			{Title: "Welcome to our New Site", Date: "2023-06-01"},
-		},
-		"Featured": FeaturedContent{
-			Title:       "Summer Sale",
-			Description: "Get 20% off on all products until July 31st!",
-			URL:         "/summer-sale",
-		},
-	}
+  // Prepare data for the template
+  data := map[string]any{
+    "Title": "Home Page",
+    "User": User{
+      ID:   1,
+      Name: "John Doe",
+    },
+    "Updates": []Update{
+      {Title: "New Feature Released", Date: "2023-06-15"},
+      {Title: "System Maintenance", Date: "2023-06-10"},
+      {Title: "Welcome to our New Site", Date: "2023-06-01"},
+    },
+    "Featured": FeaturedContent{
+      Title:       "Summer Sale",
+      Description: "Get 20% off on all products until July 31st!",
+      URL:         "/summer-sale",
+    },
+  }
 
-	// Render the template to stdout (for this example)
-	if err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", data, nil); err != nil {
-		fmt.Printf("Error rendering template: %v\n", err)
-	}
+  // Render the template to stdout (for this example)
+  if err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", data, nil); err != nil {
+    fmt.Printf("Error rendering template: %v\n", err)
+  }
 }
 ```
 
