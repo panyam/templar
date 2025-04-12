@@ -74,11 +74,7 @@ func openFile(outfile string) io.Writer {
 // Basic example showing template loading and rendering
 func basicExample(group *templar.TemplateGroup, w io.Writer) {
 	// Load a root template (dependencies handled automatically)
-	rootTemplate, err := group.Loader.Load("pages/homepage.tmpl", "")
-	if err != nil {
-		fmt.Printf("Error loading template: %v\n", err)
-		return
-	}
+	rootTemplate := group.MustLoad("pages/homepage.tmpl", "")
 
 	// Prepare data for the template
 	data := map[string]any{
@@ -101,8 +97,7 @@ func basicExample(group *templar.TemplateGroup, w io.Writer) {
 
 	// Render the template to stdout (for this example)
 	fmt.Println("Rendering template...")
-	err = group.RenderHtmlTemplate(w, rootTemplate[0], "", data, nil)
-	if err != nil {
+	if err := group.RenderHtmlTemplate(w, rootTemplate[0], "", data, nil); err != nil {
 		fmt.Printf("Error rendering template: %v\n", err)
 	}
 }

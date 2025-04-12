@@ -37,6 +37,17 @@ func NewTemplateGroup() *TemplateGroup {
 	}
 }
 
+// Calls the underlying Loader to load templates matching a pattern and optional using a cwd for relative paths.
+// Panics if an error is encountered.
+// Returns matching templates or an error if no templates were found.
+func (t *TemplateGroup) MustLoad(pattern string, cwd string) []*Template {
+	out, err := t.Loader.Load(pattern, cwd)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 // AddFuncs adds template functions to this group, making them available
 // to all templates. Returns the template group for method chaining.
 func (t *TemplateGroup) AddFuncs(funcs map[string]any) *TemplateGroup {

@@ -30,7 +30,7 @@ func renderProductListPage(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-## The Solution
+## Proposal
 
 Templar solves these problems by providing:
 
@@ -68,7 +68,7 @@ Templar is designed to integrate smoothly with Go's standard templating librarie
 3. **Flexible and Extensible**: Create custom loaders for any template source.
 4. **Production Ready**: Handles complex dependencies, prevents cycles, and provides clear error messages.
 
-## Quick Start
+## Getting Started
 
 ### [Basic Example](https://github.com/panyam/templar/blob/main/examples/main.go)
 
@@ -91,10 +91,7 @@ func main() {
   )
   
   // Load a root template (dependencies handled automatically)
-  rootTemplate, err := loader.Load("pages/homepage.tmpl", "")
-  if err != nil {
-      panic(err)
-  }
+  rootTemplate := group.MustLoad("pages/homepage.tmpl", "")
 
 	// Prepare data for the template
 	data := map[string]any{
@@ -116,9 +113,7 @@ func main() {
 	}
 
 	// Render the template to stdout (for this example)
-	fmt.Println("Rendering template...")
-	err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", data, nil)
-	if err != nil {
+	if err = group.RenderHtmlTemplate(os.Stdout, rootTemplate[0], "", data, nil); err != nil {
 		fmt.Printf("Error rendering template: %v\n", err)
 	}
 }
