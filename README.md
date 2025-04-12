@@ -194,14 +194,19 @@ group.RenderTextTemplate(w, dynamicTemplate, "", map[string]any{"Name": "World"}
 
 ## Comparison with Other Solutions
 
-| Feature                     | Standard Go Templates | Templar |
-|-----------------------------|-----------------------|---------|
-| Dependency Management       | ❌                    | ✅      |
-| Self-describing Templates   | ❌                    | ✅      |
-| Standard Go Template Syntax | ✅                    | ✅      |
-| Supports Cycles Prevention  | ❌                    | ✅      |
-| HTML Escaping               | ✅                    | ✅      |
-| Template Grouping           | ⚠️ Partial             | ✅      |
+| Feature                          | Standard Go Templates | Templar |
+|----------------------------------|-----------------------|---------|
+| Dependency Management            | ❌                    | ✅      |
+| Self-describing Templates (*)    | ❌                    | ✅      |
+| Standard Go Template Syntax      | ✅                    | ✅      |
+| Supports Cycles Prevention (**)  | ❌                    | ✅      |
+| HTML Escaping                    | ✅                    | ✅      |
+| Template Grouping (***)          | ⚠️ Partial             | ✅      |
+
+`*`: Self-describing here refers to a template specifying all the dependencies it needs so a template author can be
+clear about what is required and include them instead of hoping they exist somehow.
+`**`: Cycles are caught by the preprocessor and is clearer.
+`***`: Grouping in standard templates is done in code by the template user instead of the author.
 
 ### Other alternatives
 
