@@ -2,7 +2,6 @@ package templar
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -63,15 +62,15 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 		if err == nil {
 			folderinfo, err := os.Stat(folder)
 			if os.IsNotExist(err) {
-				log.Println("folder does not exist: ", folder)
+				slog.Debug("folder does not exist: ", "folder", folder)
 				continue
 			}
 			if !folderinfo.IsDir() {
-				log.Println("folder is not a directory: ", folder)
+				slog.Debug("folder is not a directory: ", "folder", folder)
 				continue
 			}
 		} else {
-			log.Println("Invalid folder: ", folder)
+			slog.Debug("Invalid folder: ", "folder", folder)
 			continue
 		}
 		for _, ext := range extensions {
@@ -79,7 +78,7 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 			withext := fmt.Sprintf("%s.%s", withoutext, ext)
 			fname, err := filepath.Abs(filepath.Join(folder, withext))
 			if err != nil {
-				log.Println("Not found: ", folder, withext, fname, err)
+				slog.Info("fs template not found", "folder", folder, "ext", withext, "fname", fname, "error", err)
 				continue
 			}
 			info, err := os.Stat(fname)
@@ -90,7 +89,6 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 			}
 		}
 	}
-	// log.Printf("Template not found: %s, CWD: %s", name, cwd)
 	slog.Warn("Template not found", "name", name, "cwd", cwd)
 	return nil, TemplateNotFound
 }

@@ -3,7 +3,7 @@ package templar
 import (
 	htmpl "html/template"
 	"io"
-	"log"
+	"log/slog"
 	"maps"
 	"path/filepath"
 	ttmpl "text/template"
@@ -170,7 +170,7 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry st
 		err = tmpl.ExecuteTemplate(w, name, data)
 	}
 	if err != nil {
-		log.Println("error rendering template as html: ", name, err)
+		slog.Error("error rendering template as html: ", "name", name, "error", err)
 		return panicOrError(err)
 	}
 	return
@@ -196,7 +196,7 @@ func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, entry st
 		err = tmpl.ExecuteTemplate(w, name, data)
 	}
 	if err != nil {
-		log.Println("error rendering template as text: ", name, err)
+		slog.Error("error rendering template as text: ", "name", name, "error", err)
 	}
 	return
 }

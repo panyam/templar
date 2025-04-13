@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	ttmpl "text/template"
 )
@@ -91,14 +91,14 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	// First parse the macro template
 	templ, err := ttmpl.New("").Funcs(fm).Delims("{{#", "#}}").Parse(string(root.RawSource))
 	if err != nil {
-		log.Println("Error loading template: ", err, root.Path)
+		slog.Error("error template: ", "path", root.Path, "error", err)
 		return panicOrError(err)
 	}
 
 	// New execute it so that all includes are evaluated
 	buff := bytes.NewBufferString("")
 	if err := templ.Execute(buff, nil); err != nil {
-		log.Println("Pre Processor Error: ", err, root.Path)
+		slog.Error("error preprocessing template: ", "path", root.Path, "error", err)
 		root.Error = err
 		return panicOrError(err)
 	} else {
@@ -111,22 +111,21 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 		cwd = filepath.Dir(cwd)
 	}
 	for _, included := range includes {
-		// log.Printf("Trying to load '%s' from '%s", included, root.Path)
 		children, err := loader.Load(included, cwd)
 		if err != nil {
-			log.Println("error loading: ", included, err)
+			slog.Error("error loading include: ", "included", included, "error", err)
 			return panicOrError(err)
 		}
 		for _, child := range children {
 			if child.Path != "" {
 				if !root.AddDependency(child) {
-					log.Printf("Found cyclical dependency: %s -> %s", child.Path, root.Path)
+					slog.Error(fmt.Sprintf("found cyclical dependency: %s -> %s", child.Path, root.Path), "from", child.Path, "to", root.Path)
 					continue
 				}
 			}
 			err = child.WalkTemplate(loader, handler)
 			if err != nil {
-				log.Println("error walking: ", included, err)
+				slog.Error("error walking", "included", included, "error", err)
 				root.Error = err
 				return panicOrError(err)
 			}
