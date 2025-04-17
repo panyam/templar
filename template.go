@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"path/filepath"
 	ttmpl "text/template"
@@ -71,17 +72,21 @@ type TemplateLoader interface {
 	Load(pattern string, cwd string) (template []*Template, err error)
 }
 
-// WalkTemplate processes a template and its dependencies recursively.
-// It starts from the root template, processes all includes with the {{# include "..." #}} directive,
-// and calls the provided handler function on each template in the dependency tree.
-// The loader is used to resolve and load included templates.
 func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template *Template) error) (err error) {
-	// Now get a list of all the includes - It doesnt matter *where* the include is - they are all collected first
-	// Given how go templates treat definitions (by name) their order doesnt matter and we dont want to change this
-	// here
+	// An Inorder walk of of a template.  Unlike WalkTemplate which applies a PostOrder traversal (first collects all
+	// includes, processes them and then the root template), here we will process an included template as soon as it is
+	// encountered.
+	cwd := root.Path
+	if cwd != "" {
+		cwd = filepath.Dir(cwd)
+	}
+
+	log.Println("Coming from : ", root.Name)
+	defer log.Println("Finished with: ", root.Name, root.Path)
 	var includes []string
 	fm := ttmpl.FuncMap{
 		"include": func(glob string) string {
+			log.Println("Coming to: ", glob)
 			// TODO - avoid duplicates
 			includes = append(includes, glob)
 			return fmt.Sprintf("{{/* Including: '%s' */}}", glob)
@@ -106,10 +111,6 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 	}
 
 	// Resolve the includes - for now non-wildcards are only allowed
-	cwd := root.Path
-	if cwd != "" {
-		cwd = filepath.Dir(cwd)
-	}
 	for _, included := range includes {
 		children, err := loader.Load(included, cwd)
 		if err != nil {

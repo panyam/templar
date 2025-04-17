@@ -3,6 +3,7 @@ package templar
 import (
 	htmpl "html/template"
 	"io"
+	"log"
 	"log/slog"
 	"maps"
 	"path/filepath"
@@ -129,20 +130,24 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 		if funcs != nil {
 			out = out.Funcs(funcs)
 		}
-		err = root.WalkTemplate(t.Loader, func(t *Template) error {
-			if t.Path == "" {
-				out, err = out.Parse(t.ParsedSource)
-				return panicOrError(err)
-			} else {
-				x, err := out.Parse(t.ParsedSource)
-				if err != nil {
+		w := Walker{Loader: t.Loader,
+			ProcessedTemplate: func(t *Template) error {
+				log.Println("==========================================")
+				log.Println("Parsed Source: ", t.Path, t.ParsedSource)
+				if t.Path == "" {
+					out, err = out.Parse(t.ParsedSource)
+					return panicOrError(err)
+				} else {
+					x, err := out.Parse(t.ParsedSource)
+					if err != nil {
+						return panicOrError(err)
+					}
+					base := filepath.Base(t.Path)
+					out, err = out.AddParseTree(base, x.Tree)
 					return panicOrError(err)
 				}
-				base := filepath.Base(t.Path)
-				out, err = out.AddParseTree(base, x.Tree)
-				return panicOrError(err)
-			}
-		})
+			}}
+		err = w.Walk(root)
 		if err == nil && name != "" {
 			t.htmlTemplates[name] = out
 		}

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -54,11 +55,23 @@ func (b *BasicServer) createMux() {
 		prefix = "/" + prefix + "/"
 		b.mux.Handle(prefix, http.StripPrefix(prefix, http.FileServer(http.Dir(localfolder))))
 	}
+
+	b.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Path: ", r.URL.Path)
+		template := r.URL.Path[1:]
+		tmpl, err := b.Templates.Loader.Load(template, "")
+		if err != nil {
+			log.Println("Template Load Error: ", err)
+			fmt.Fprint(w, "Error rendering: ", err.Error())
+		} else {
+			log.Println("Got Template: ", tmpl)
+			b.Templates.RenderHtmlTemplate(w, tmpl[0], template, map[string]any{}, nil)
+		}
+	})
 }
 
 func (b *BasicServer) Serve(ctx context.Context, addr string) error {
 	b.Init()
-	b.createMux()
 
 	if ctx == nil {
 		ctx = context.Background()
