@@ -3,7 +3,6 @@ package templar
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"log/slog"
 	"path/filepath"
 	ttmpl "text/template"
@@ -23,6 +22,11 @@ type Walker struct {
 	// FoundInclude is called when an include directive is encountered.
 	// If it returns true, the include is skipped and not processed.
 	FoundInclude func(included string) bool
+
+	// Called before a template is preprocessed.  This is an opportunity
+	// for the handler to control entering/preprocessing etc.  For example
+	// This could be a place for the handler to skip processing a template
+	EnteringTemplate func(template *Template) (skip bool, err error)
 
 	// ProcessedTemplate is called after a template and all its children
 	// have been processed. This allows for custom post-processing.
@@ -48,7 +52,12 @@ func (w *Walker) Walk(root *Template) (err error) {
 		cwd = filepath.Dir(cwd)
 	}
 
-	// First parse the macro template
+	if w.EnteringTemplate != nil {
+		skip, err := w.EnteringTemplate(root)
+		if skip || err != nil {
+			return err
+		}
+	}
 
 	// parse the template and render it
 	fm := ttmpl.FuncMap{
@@ -58,14 +67,14 @@ func (w *Walker) Walk(root *Template) (err error) {
 			if skipped {
 				return fmt.Sprintf("{{/* Skipping: '%s' */}}", glob), err
 			} else {
-				return fmt.Sprintf("{{/* Including: '%s' */}}", glob), err
+				return fmt.Sprintf("{{/* Finished Including: '%s' */}}", glob), err
 			}
 		},
 	}
 
 	templ, err := ttmpl.New("").Funcs(fm).Delims("{{#", "#}}").Parse(string(root.RawSource))
 	if err != nil {
-		slog.Error("error template: ", "path", root.Path, "error", err)
+		slog.Error("error preprocessing template: ", "path", root.Path, "error", err)
 		return panicOrError(err)
 	}
 	if err := templ.Execute(w.Buffer, nil); err != nil {
@@ -93,7 +102,6 @@ func (w *Walker) processInclude(root *Template, included string, cwd string) (sk
 		return
 	}
 
-	log.Println("Coming to: ", included)
 	children, err := w.Loader.Load(included, cwd)
 	if err != nil {
 		slog.Error("error loading include: ", "included", included, "error", err)

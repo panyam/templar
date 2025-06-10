@@ -59,13 +59,17 @@ func (b *BasicServer) createMux() {
 	b.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Path: ", r.URL.Path)
 		template := r.URL.Path[1:]
+		entry := ""
+		if e := r.URL.Query()["entry"]; len(e) > 0 {
+			entry = e[0]
+		}
 		tmpl, err := b.Templates.Loader.Load(template, "")
 		if err != nil {
 			log.Println("Template Load Error: ", err)
 			fmt.Fprint(w, "Error rendering: ", err.Error())
 		} else {
 			log.Println("Got Template: ", tmpl)
-			b.Templates.RenderHtmlTemplate(w, tmpl[0], template, map[string]any{}, nil)
+			b.Templates.RenderHtmlTemplate(w, tmpl[0], entry, map[string]any{}, nil)
 		}
 	})
 }

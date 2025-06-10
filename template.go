@@ -24,6 +24,9 @@ type Template struct {
 	// ParsedSource contains the template content after preprocessing.
 	ParsedSource string
 
+	// CleanedSource contains the template after all the includes are removed but before any preprocessing is done
+	cleanedSource string
+
 	// Path is the file path for this template if it was loaded from a file.
 	Path string
 
@@ -42,6 +45,32 @@ type Template struct {
 
 	// Metadata stores extracted information from the template (e.g., FrontMatter).
 	Metadata map[string]any
+}
+
+// Returns the cleaned source of this template wihtout all the includes removed (but before they are preprocessed)
+func (t *Template) CleanedSource() (string, error) {
+	if t.cleanedSource == "" {
+		fm2 := ttmpl.FuncMap{
+			"include": func(glob string) (string, error) {
+				return fmt.Sprintf("{{/* Removed Include: '%s' */}}", glob), nil
+			},
+		}
+
+		buff2 := bytes.NewBufferString("")
+		templ2, err := ttmpl.New("").Funcs(fm2).Delims("{{#", "#}}").Parse(string(t.RawSource))
+		if err != nil {
+			slog.Error("error removing includes in template: ", "path", t.Path, "error", err)
+			return t.cleanedSource, panicOrError(err)
+		}
+		if err := templ2.Execute(buff2, nil); err != nil {
+			slog.Error("error removing includes in template: ", "path", t.Path, "error", err)
+			t.Error = err
+			return t.cleanedSource, panicOrError(err)
+		} else {
+			t.cleanedSource = buff2.String()
+		}
+	}
+	return t.cleanedSource, nil
 }
 
 // AddDependency adds another template as a dependency of this template.
