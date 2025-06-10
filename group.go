@@ -101,6 +101,8 @@ func (t *TemplateGroup) PreProcessTextTemplate(root *Template, funcs ttmpl.FuncM
 				if err != nil {
 					return panicOrError(err)
 				}
+				// TODO - is this really necessary to add the parsed source back to out
+				// Should the parsing already do that for "out" anyway?
 				base := filepath.Base(t.Path)
 				out, err = out.AddParseTree(base, x.Tree)
 				return panicOrError(err)
@@ -131,18 +133,47 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 			out = out.Funcs(funcs)
 		}
 		w := Walker{Loader: t.Loader,
-			ProcessedTemplate: func(t *Template) error {
-				log.Println("==========================================")
-				log.Println("Parsed Source: ", t.Path, t.ParsedSource)
-				if t.Path == "" {
-					out, err = out.Parse(t.ParsedSource)
+			ProcessedTemplate: func(curr *Template) error {
+				if curr != root {
+					if true {
+						return nil
+					} else {
+						// HACK - just printing out template contents to see waht is there
+						// Seeing if there is a way to override Go template behavior by
+						// "replacing" non empty block definitions with overrides
+						// log.Println("==========================================")
+						// log.Println("Raw Source of Curr: ", t.Path, string(t.RawSource))
+						x := htmpl.New("temp").Funcs(t.Funcs)
+						if funcs != nil {
+							x = x.Funcs(funcs)
+						}
+						src, _ := curr.CleanedSource()
+						x, err := x.Parse(src)
+						log.Println("X, Err: ", curr.Path, x.Templates(), err)
+						for _, t := range x.Templates() {
+							log.Println("Found Template: ", t.Name())
+							if t.Name() == "temp" {
+								for i, node := range t.Tree.Root.Nodes {
+									log.Println("Node: ", i, node.Type(), node.String())
+								}
+							}
+						}
+						return panicOrError(err)
+					}
+				}
+				// log.Println("==========================================")
+				// log.Println("Parsed Source: ", t.Path, t.ParsedSource)
+				if curr.Path == "" {
+					out, err = out.Parse(curr.ParsedSource)
 					return panicOrError(err)
 				} else {
-					x, err := out.Parse(t.ParsedSource)
+					x, err := out.Parse(curr.ParsedSource)
 					if err != nil {
 						return panicOrError(err)
 					}
-					base := filepath.Base(t.Path)
+					// TODO - is this really necessary to add the parsed source back to out
+					// Should the parsing already do that for "out" anyway?
+					base := filepath.Base(curr.Path)
 					out, err = out.AddParseTree(base, x.Tree)
 					return panicOrError(err)
 				}
