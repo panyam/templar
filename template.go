@@ -110,8 +110,8 @@ func (root *Template) WalkTemplate(loader TemplateLoader, handler func(template 
 		cwd = filepath.Dir(cwd)
 	}
 
-	log.Println("Coming from : ", root.Name)
-	defer log.Println("Finished with: ", root.Name, root.Path)
+	// log.Println("Coming from : ", root.Name)
+	// defer log.Println("Finished with: ", root.Name, root.Path)
 	var includes []string
 	fm := ttmpl.FuncMap{
 		"include": func(glob string) string {
