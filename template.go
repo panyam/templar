@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"path/filepath"
 	ttmpl "text/template"
+
+	gotl "github.com/panyam/goutils/template"
 )
 
 // TemplateNotFound is returned when a template could not be found by a loader.
@@ -51,6 +53,7 @@ type Template struct {
 func (t *Template) CleanedSource() (string, error) {
 	if t.cleanedSource == "" {
 		fm2 := ttmpl.FuncMap{
+			"dict": gotl.ValuesToDict,
 			"include": func(glob string) (string, error) {
 				return fmt.Sprintf("{{/* Removed Include: '%s' */}}", glob), nil
 			},

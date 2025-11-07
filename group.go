@@ -187,8 +187,10 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 }
 
 // RenderHtmlTemplate renders a template as HTML to the provided writer.
+//
 // It processes the template with its dependencies, executes it with the given data,
 // and applies any additional template functions provided.
+//
 // If entry is specified, it executes that specific template within the processed template.
 func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessHtmlTemplate(root, funcs)
@@ -213,8 +215,10 @@ func (t *TemplateGroup) RenderHtmlTemplate(w io.Writer, root *Template, entry st
 }
 
 // RenderTextTemplate renders a template as plain text to the provided writer.
+//
 // It processes the template with its dependencies, executes it with the given data,
 // and applies any additional template functions provided.
+//
 // If entry is specified, it executes that specific template within the processed template.
 func (t *TemplateGroup) RenderTextTemplate(w io.Writer, root *Template, entry string, data any, funcs map[string]any) (err error) {
 	out, err := t.PreProcessTextTemplate(root, funcs)
