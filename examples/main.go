@@ -86,6 +86,9 @@ func main() {
 
 	// Example of namespace and extend features
 	exampleNamespaceAndExtend(group, openFile("./output/namespace_demo.html"))
+
+	// Example of memory profiling
+	exampleMemoryProfiling()
 }
 
 func openFile(outfile string) io.Writer {
@@ -232,4 +235,86 @@ func exampleNamespaceAndExtend(group *templar.TemplateGroup, w io.Writer) {
 		fmt.Printf("Error rendering namespace demo: %v\n", err)
 	}
 	fmt.Println("Namespace demo rendered successfully!")
+}
+
+// Example showing memory profiling during template operations
+func exampleMemoryProfiling() {
+	fmt.Println("\n=== Memory Profiling Example ===")
+
+	// Create a memory stats collector
+	stats := templar.NewMemStats()
+
+	// Take initial snapshot (with GC to get accurate baseline)
+	stats.SnapshotWithGC("initial")
+
+	// Create a template group
+	group := templar.NewTemplateGroup()
+	group.Loader = templar.NewFileSystemLoader(
+		"templates/",
+		"templates/shared/",
+	)
+
+	// Add custom functions
+	group.AddFuncs(map[string]any{
+		"currentYear": func() int { return time.Now().Year() },
+		"dict": func(values ...any) map[string]any {
+			if len(values)%2 != 0 {
+				return nil
+			}
+			dict := make(map[string]any)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					continue
+				}
+				dict[key] = values[i+1]
+			}
+			return dict
+		},
+		"default": func(def, val any) any {
+			if val == nil || val == "" {
+				return def
+			}
+			return val
+		},
+	})
+
+	stats.Snapshot("after-setup")
+
+	// Load templates
+	templates := group.MustLoad("pages/homepage.tmpl", "")
+	stats.Snapshot("after-load-homepage")
+
+	// Load namespace demo (more complex with namespaces)
+	nsTemplates := group.MustLoad("pages/namespace_demo.tmpl", "")
+	stats.Snapshot("after-load-namespace")
+
+	// Render homepage
+	data := map[string]any{
+		"Title": "Test Page",
+		"User":  User{ID: 1, Name: "Test User"},
+	}
+	if err := group.RenderHtmlTemplate(io.Discard, templates[0], "", data, nil); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+	stats.Snapshot("after-render-homepage")
+
+	// Render namespace demo
+	if err := group.RenderHtmlTemplate(io.Discard, nsTemplates[0], "", data, nil); err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+	stats.Snapshot("after-render-namespace")
+
+	// Final snapshot with GC to see retained memory
+	stats.SnapshotWithGC("final-after-gc")
+
+	// Print the report
+	fmt.Println()
+	stats.Report(os.Stdout)
+
+	// You can also get specific deltas
+	fmt.Println("\n--- Specific Delta ---")
+	if delta := stats.Delta("after-setup", "after-load-namespace"); delta != nil {
+		fmt.Println("Template loading cost:", delta)
+	}
 }
