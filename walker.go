@@ -32,8 +32,8 @@ type Walker struct {
 	// have been processed. This allows for custom post-processing.
 	ProcessedTemplate func(template *Template) error
 
-	// visited tracks templates that have already been processed to prevent cycles or filtering out duplicate definitions
-	visited map[string]bool
+	// inProgress tracks templates currently being processed to detect cycles (infinite recursion)
+	inProgress map[string]bool
 }
 
 // Walk processes a template and its dependencies using in-order traversal.
@@ -43,6 +43,19 @@ type Walker struct {
 func (w *Walker) Walk(root *Template) (err error) {
 	if w.Buffer == nil {
 		w.Buffer = bytes.NewBufferString("")
+	}
+	if w.inProgress == nil {
+		w.inProgress = make(map[string]bool)
+	}
+
+	// Check if this template is currently being processed (cycle detection)
+	if root.Path != "" {
+		if w.inProgress[root.Path] {
+			slog.Warn("cycle detected, skipping template already in progress", "path", root.Path)
+			return nil
+		}
+		w.inProgress[root.Path] = true
+		defer func() { w.inProgress[root.Path] = false }()
 	}
 	// An Inorder walk of of a template.  Unlike WalkTemplate which applies a PostOrder traversal (first collects all
 	// includes, processes them and then the root template), here we will process an included template as soon as it is
@@ -219,11 +232,13 @@ func (w *Walker) processNamespace(root *Template, namespace string, included str
 		// This ensures the child's ParsedSource contains only its own content,
 		// avoiding conflicts when the same template is included multiple times
 		// with different namespaces.
+		// IMPORTANT: Share the inProgress map to detect cycles (infinite recursion).
 		childWalker := &Walker{
 			Loader:            w.Loader,
 			FoundInclude:      w.FoundInclude,
 			EnteringTemplate:  w.EnteringTemplate,
 			ProcessedTemplate: w.ProcessedTemplate,
+			inProgress:        w.inProgress, // Share inProgress map for cycle detection
 		}
 		err = childWalker.Walk(child)
 		if err != nil {
