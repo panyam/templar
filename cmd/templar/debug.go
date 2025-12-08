@@ -258,10 +258,18 @@ func flattenTemplate(templateFile string, searchPaths []string, trace bool) {
 		fmt.Fprintln(os.Stderr, "\n=== Path Resolution Trace ===")
 	}
 
+	// Collect all extensions from all processed templates
+	var allExtensions []templar.Extension
+
 	walker := &templar.Walker{
 		Loader: actualLoader,
 		FoundInclude: func(included string) bool {
 			return false // process all includes
+		},
+		ProcessedTemplate: func(t *templar.Template) error {
+			// Collect extensions from each template
+			allExtensions = append(allExtensions, t.Extensions...)
+			return nil
 		},
 	}
 
@@ -276,6 +284,17 @@ func flattenTemplate(templateFile string, searchPaths []string, trace bool) {
 		fmt.Fprintln(os.Stderr, "\n=== Flattened Template ===")
 	}
 	fmt.Println(root.ParsedSource)
+
+	// Show extensions that were collected
+	if len(allExtensions) > 0 {
+		fmt.Fprintln(os.Stderr, "\n=== Extensions (will create templates at render time) ===")
+		for _, ext := range allExtensions {
+			fmt.Fprintf(os.Stderr, "  - %s -> %s\n", ext.SourceTemplate, ext.DestTemplate)
+			for old, newTmpl := range ext.Rewrites {
+				fmt.Fprintf(os.Stderr, "      rewire: %s -> %s\n", old, newTmpl)
+			}
+		}
+	}
 }
 
 // TracingLoader wraps a loader to trace path resolution

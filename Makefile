@@ -1,6 +1,6 @@
 
 test:
-	go test -v ./...
+	go test ./...
 
 install:
 	go build -o ${GOBIN}/templar ./cmd/templar/*.go
