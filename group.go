@@ -133,8 +133,15 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 		if funcs != nil {
 			out = out.Funcs(funcs)
 		}
+
+		// Collect all extensions from all processed templates
+		var allExtensions []Extension
+
 		w := Walker{Loader: t.Loader,
 			ProcessedTemplate: func(curr *Template) error {
+				// Collect extensions from this template
+				allExtensions = append(allExtensions, curr.Extensions...)
+
 				// Skip non-root templates that don't have a namespace and no entry points
 				// (they will be processed via normal include mechanism)
 				if curr != root && curr.Namespace == "" && len(curr.NamespaceEntryPoints) == 0 {
@@ -170,8 +177,8 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 			return out, err
 		}
 
-		// Process extensions after all templates are parsed
-		err = t.processExtensions(root, out)
+		// Process all collected extensions after all templates are parsed
+		err = t.processExtensionsList(allExtensions, out)
 		if err != nil {
 			return out, err
 		}
@@ -187,6 +194,8 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 // It parses the template, applies tree-shaking if entry points are specified,
 // and adds all reachable templates with namespaced names.
 func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Template, funcs htmpl.FuncMap) error {
+	slog.Debug("processNamespacedTemplate", "path", curr.Path, "namespace", curr.Namespace)
+
 	// Parse into a fresh temporary template to avoid name collisions
 	temp := htmpl.New("temp").Funcs(t.Funcs)
 	if funcs != nil {
@@ -206,6 +215,7 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 			allNames = append(allNames, tmpl.Name())
 		}
 	}
+	slog.Debug("processNamespacedTemplate: found templates", "path", curr.Path, "templates", allNames)
 
 	// Determine which templates to include
 	var templatesToInclude map[string]bool
@@ -231,6 +241,7 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 	}
 
 	// Add namespaced templates to output
+	var createdNames []string
 	for name := range templatesToInclude {
 		tmpl := allTemplates[name]
 		if tmpl == nil || tmpl.Tree == nil {
@@ -250,7 +261,9 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 		if err != nil {
 			return panicOrError(err)
 		}
+		createdNames = append(createdNames, namespacedName)
 	}
+	slog.Debug("processNamespacedTemplate: created templates", "path", curr.Path, "created", createdNames)
 
 	return nil
 }
@@ -300,7 +313,25 @@ func (t *TemplateGroup) processSelectiveInclude(curr *Template, out *htmpl.Templ
 // processExtensions processes all extend directives recorded on the root template.
 // For each extension, it copies the source template and rewires references.
 func (t *TemplateGroup) processExtensions(root *Template, out *htmpl.Template) error {
-	for _, ext := range root.Extensions {
+	return t.processExtensionsList(root.Extensions, out)
+}
+
+// processExtensionsList processes a list of extensions.
+// For each extension, it copies the source template and rewires references.
+func (t *TemplateGroup) processExtensionsList(extensions []Extension, out *htmpl.Template) error {
+	if len(extensions) > 0 {
+		// Log available templates for debugging
+		var availableNames []string
+		for _, tmpl := range out.Templates() {
+			if tmpl.Tree != nil {
+				availableNames = append(availableNames, tmpl.Name())
+			}
+		}
+		slog.Debug("processExtensionsList: available templates", "count", len(availableNames), "templates", availableNames)
+	}
+
+	for _, ext := range extensions {
+		slog.Debug("processExtensionsList: processing extension", "source", ext.SourceTemplate, "dest", ext.DestTemplate)
 		// Find the source template
 		sourceTmpl := out.Lookup(ext.SourceTemplate)
 		if sourceTmpl == nil || sourceTmpl.Tree == nil {

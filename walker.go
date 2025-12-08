@@ -179,6 +179,11 @@ func (w *Walker) processInclude(root *Template, included string, entryPoints []s
 		return false, panicOrError(err)
 	}
 	for _, child := range children {
+		// Inherit namespace from parent template
+		if root.Namespace != "" {
+			child.Namespace = root.Namespace
+		}
+
 		// Set entry points for selective inclusion (tree-shaking)
 		if len(entryPoints) > 0 {
 			child.NamespaceEntryPoints = entryPoints
@@ -190,7 +195,22 @@ func (w *Walker) processInclude(root *Template, included string, entryPoints []s
 				continue
 			}
 		}
-		err = w.Walk(child)
+
+		// If the child has a namespace (inherited or otherwise), use a fresh walker
+		// with its own buffer. This ensures the child's ParsedSource contains only
+		// its own content, not contaminated with the parent's partial buffer content.
+		if child.Namespace != "" {
+			childWalker := &Walker{
+				Loader:            w.Loader,
+				FoundInclude:      w.FoundInclude,
+				EnteringTemplate:  w.EnteringTemplate,
+				ProcessedTemplate: w.ProcessedTemplate,
+				inProgress:        w.inProgress, // Share inProgress map for cycle detection
+			}
+			err = childWalker.Walk(child)
+		} else {
+			err = w.Walk(child)
+		}
 		if err != nil {
 			slog.Error("error walking", "included", included, "error", err)
 			root.Error = err
