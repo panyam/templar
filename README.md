@@ -137,7 +137,65 @@ In your templates, use the `{{# include "path/to/template" #}}` directive to inc
 {{ end }}
 ```
 
-### 2. Multiple Template Loaders
+You can also selectively include only specific templates (tree-shaking):
+
+```html
+{{# include "forms.tmpl" "button" "input" #}}
+
+{{ define "page" }}
+  {{ template "button" . }}  {{/* Only button and input are included */}}
+{{ end }}
+```
+
+### 2. Template Namespacing
+
+Avoid template name collisions by importing templates into namespaces:
+
+```html
+{{# namespace "UI" "widgets/buttons.tmpl" #}}
+{{# namespace "Theme" "themes/bootstrap.tmpl" #}}
+
+{{ define "page" }}
+  {{ template "UI:button" dict "Text" "Click Me" }}
+  {{ template "Theme:header" . }}
+{{ end }}
+```
+
+Namespace resolution rules:
+- Plain names like `button` are prefixed with the current namespace → `NS:button`
+- Names with `:` like `Other:button` are kept as-is (cross-namespace reference)
+- Names starting with `::` like `::global` become global (no namespace)
+
+Tree-shaking is also supported with namespaces:
+
+```html
+{{# namespace "UI" "widgets.tmpl" "button" "icon" #}}
+{{/* Only button, icon, and their dependencies are included */}}
+```
+
+### 3. Template Extension (Inheritance)
+
+Extend base templates while overriding specific blocks:
+
+```html
+{{# namespace "Base" "layouts/base.tmpl" #}}
+{{# extend "Base:layout" "MyLayout" "Base:title" "myTitle" "Base:content" "myContent" #}}
+
+{{ define "myTitle" }}Custom Page Title{{ end }}
+{{ define "myContent" }}
+  <h1>My Custom Content</h1>
+{{ end }}
+
+{{ template "MyLayout" . }}
+```
+
+This creates a new template `MyLayout` by copying `Base:layout`, but rewiring:
+- `{{ template "Base:title" . }}` → `{{ template "myTitle" . }}`
+- `{{ template "Base:content" . }}` → `{{ template "myContent" . }}`
+
+Non-overridden blocks retain their original references to the base templates.
+
+### 4. Multiple Template Loaders
 
 Templar allows you to configure multiple template loaders with fallback behavior:
 
@@ -153,7 +211,7 @@ loaderList.AddLoader(templar.NewFileSystemLoader("shared/templates/"))
 loaderList.DefaultLoader = templar.NewFileSystemLoader("default/templates/")
 ```
 
-### 3. Template Groups
+### 5. Template Groups
 
 Template groups manage collections of templates and their dependencies:
 
@@ -200,6 +258,9 @@ group.RenderTextTemplate(w, dynamicTemplate, "", map[string]any{"Name": "World"}
 |----------------------------------|-----------------------|---------|
 | Dependency Management            | ❌                    | ✅      |
 | Self-describing Templates (*)    | ❌                    | ✅      |
+| Template Namespacing             | ❌                    | ✅      |
+| Template Extension/Inheritance   | ❌                    | ✅      |
+| Tree-shaking                     | ❌                    | ✅      |
 | Standard Go Template Syntax      | ✅                    | ✅      |
 | Supports Cycles Prevention (**)  | ❌                    | ✅      |
 | HTML Escaping                    | ✅                    | ✅      |

@@ -1,0 +1,42 @@
+{{# namespace "Theme" "themes/bootstrap.tmpl" #}}
+{{# namespace "UI" "widgets/buttons.tmpl" #}}
+
+{{# extend "Theme:layout" "MyLayout" "Theme:title" "myTitle" "Theme:content" "myContent" #}}
+
+{{ define "myTitle" }}Namespace Demo - {{ .Title }}{{ end }}
+
+{{ define "myContent" }}
+<div class="row">
+    <div class="col-12">
+        <h1>{{ .Title }}</h1>
+        <p class="lead">This page demonstrates template namespacing and extension.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Namespaced Buttons (UI:)</div>
+            <div class="card-body">
+                {{ template "UI:button" dict "Text" "Primary Button" "Style" "primary" }}
+                {{ template "UI:button" dict "Text" "Secondary" "Style" "secondary" }}
+                {{ template "UI:iconButton" dict "Text" "With Icon" "Icon" "bi-star" "Style" "success" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Template Info</div>
+            <div class="card-body">
+                <ul>
+                    <li>Theme namespace: <code>Theme:*</code></li>
+                    <li>UI namespace: <code>UI:*</code></li>
+                    <li>Layout: <code>MyLayout</code> (extended from <code>Theme:layout</code>)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ template "MyLayout" . }}

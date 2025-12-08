@@ -1,0 +1,37 @@
+{{ define "layout" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ template "title" . }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{ template "head" . }}
+</head>
+<body class="{{ template "bodyClass" . }}">
+    {{ template "header" . }}
+    <main class="container py-4">
+        {{ template "content" . }}
+    </main>
+    {{ template "footer" . }}
+</body>
+</html>
+{{ end }}
+
+{{ define "title" }}Page Title{{ end }}
+{{ define "head" }}{{ end }}
+{{ define "bodyClass" }}{{ end }}
+{{ define "header" }}
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+        <a class="navbar-brand" href="#">My App</a>
+    </div>
+</nav>
+{{ end }}
+{{ define "content" }}<p>Default content</p>{{ end }}
+{{ define "footer" }}
+<footer class="bg-light py-3 mt-auto">
+    <div class="container text-center">
+        <small>&copy; 2024 My App</small>
+    </div>
+</footer>
+{{ end }}

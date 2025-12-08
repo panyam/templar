@@ -41,6 +41,28 @@ func main() {
 		"currentYear": func() int {
 			return time.Now().Year()
 		},
+		// Helper function to create dictionaries in templates
+		"dict": func(values ...any) map[string]any {
+			if len(values)%2 != 0 {
+				return nil
+			}
+			dict := make(map[string]any)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					continue
+				}
+				dict[key] = values[i+1]
+			}
+			return dict
+		},
+		// Default value helper
+		"default": func(def, val any) any {
+			if val == nil || val == "" {
+				return def
+			}
+			return val
+		},
 	})
 
 	// Example of using a loader list with fallbacks
@@ -61,6 +83,9 @@ func main() {
 
 	// Example of dynamic template creation
 	exampleDynamicTemplate(group, openFile("./output/dynamic.html"))
+
+	// Example of namespace and extend features
+	exampleNamespaceAndExtend(group, openFile("./output/namespace_demo.html"))
 }
 
 func openFile(outfile string) io.Writer {
@@ -183,4 +208,28 @@ func exampleDynamicTemplate(group *templar.TemplateGroup, w io.Writer) {
 	if err != nil {
 		fmt.Printf("Error rendering dynamic template: %v\n", err)
 	}
+}
+
+// Example showing namespace and extend features
+func exampleNamespaceAndExtend(group *templar.TemplateGroup, w io.Writer) {
+	fmt.Println("Loading namespace demo template...")
+
+	// Load the namespace demo template which demonstrates:
+	// 1. {{# namespace "Theme" "themes/bootstrap.tmpl" #}} - Import theme into "Theme" namespace
+	// 2. {{# namespace "UI" "widgets/buttons.tmpl" #}} - Import widgets into "UI" namespace
+	// 3. {{# extend "Theme:layout" "MyLayout" ... #}} - Extend base layout with overrides
+	// 4. Using namespaced templates like {{ template "UI:button" ... }}
+	rootTemplate := group.MustLoad("pages/namespace_demo.tmpl", "")
+
+	// Prepare data for the template
+	data := map[string]any{
+		"Title": "Namespace & Extend Demo",
+	}
+
+	// Render the template
+	fmt.Println("Rendering namespace demo...")
+	if err := group.RenderHtmlTemplate(w, rootTemplate[0], "", data, nil); err != nil {
+		fmt.Printf("Error rendering namespace demo: %v\n", err)
+	}
+	fmt.Println("Namespace demo rendered successfully!")
 }

@@ -1,0 +1,17 @@
+{{ define "button" }}
+<button class="btn btn-{{ .Style | default "primary" }}">{{ .Text }}</button>
+{{ end }}
+
+{{ define "iconButton" }}
+<button class="btn btn-{{ .Style | default "primary" }}">
+  <i class="{{ .Icon }}"></i> {{ .Text }}
+</button>
+{{ end }}
+
+{{ define "buttonGroup" }}
+<div class="btn-group">
+  {{ range .Buttons }}
+    {{ template "button" . }}
+  {{ end }}
+</div>
+{{ end }}
