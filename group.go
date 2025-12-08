@@ -1,13 +1,14 @@
 package templar
 
 import (
+	"fmt"
 	htmpl "html/template"
 	"io"
-	"log"
 	"log/slog"
 	"maps"
 	"path/filepath"
 	ttmpl "text/template"
+	"text/template/parse"
 )
 
 // TemplateGroup manages a collection of templates and their dependencies,
@@ -134,56 +135,191 @@ func (t *TemplateGroup) PreProcessHtmlTemplate(root *Template, funcs htmpl.FuncM
 		}
 		w := Walker{Loader: t.Loader,
 			ProcessedTemplate: func(curr *Template) error {
-				if curr != root {
-					if true {
-						return nil
-					} else {
-						// HACK - just printing out template contents to see waht is there
-						// Seeing if there is a way to override Go template behavior by
-						// "replacing" non empty block definitions with overrides
-						// log.Println("==========================================")
-						// log.Println("Raw Source of Curr: ", t.Path, string(t.RawSource))
-						x := htmpl.New("temp").Funcs(t.Funcs)
-						if funcs != nil {
-							x = x.Funcs(funcs)
-						}
-						src, _ := curr.CleanedSource()
-						x, err := x.Parse(src)
-						log.Println("X, Err: ", curr.Path, x.Templates(), err)
-						for _, t := range x.Templates() {
-							log.Println("Found Template: ", t.Name())
-							if t.Name() == "temp" {
-								for i, node := range t.Tree.Root.Nodes {
-									log.Println("Node: ", i, node.Type(), node.String())
-								}
-							}
-						}
-						return panicOrError(err)
-					}
+				// Skip non-root templates that don't have a namespace and no entry points
+				// (they will be processed via normal include mechanism)
+				if curr != root && curr.Namespace == "" && len(curr.NamespaceEntryPoints) == 0 {
+					return nil
 				}
-				// log.Println("==========================================")
-				// log.Println("Parsed Source: ", t.Path, t.ParsedSource)
+
 				if curr.Path == "" {
 					out, err = out.Parse(curr.ParsedSource)
 					return panicOrError(err)
-				} else {
-					x, err := out.Parse(curr.ParsedSource)
-					if err != nil {
-						return panicOrError(err)
-					}
-					// TODO - is this really necessary to add the parsed source back to out
-					// Should the parsing already do that for "out" anyway?
-					base := filepath.Base(curr.Path)
-					out, err = out.AddParseTree(base, x.Tree)
+				}
+
+				// If namespace is set, parse into a temporary template and apply namespacing
+				if curr.Namespace != "" {
+					return t.processNamespacedTemplate(curr, out, funcs)
+				}
+
+				// If entry points are set (selective include), apply tree-shaking
+				if len(curr.NamespaceEntryPoints) > 0 {
+					return t.processSelectiveInclude(curr, out, funcs)
+				}
+
+				// Normal case: parse and add with original name
+				base := filepath.Base(curr.Path)
+				x, err := out.Parse(curr.ParsedSource)
+				if err != nil {
 					return panicOrError(err)
 				}
+				out, err = out.AddParseTree(base, x.Tree)
+				return panicOrError(err)
 			}}
 		err = w.Walk(root)
-		if err == nil && name != "" {
+		if err != nil {
+			return out, err
+		}
+
+		// Process extensions after all templates are parsed
+		err = t.processExtensions(root, out)
+		if err != nil {
+			return out, err
+		}
+
+		if name != "" {
 			t.htmlTemplates[name] = out
 		}
 	}
 	return out, err
+}
+
+// processNamespacedTemplate handles templates that should be added to a namespace.
+// It parses the template, applies tree-shaking if entry points are specified,
+// and adds all reachable templates with namespaced names.
+func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Template, funcs htmpl.FuncMap) error {
+	// Parse into a fresh temporary template to avoid name collisions
+	temp := htmpl.New("temp").Funcs(t.Funcs)
+	if funcs != nil {
+		temp = temp.Funcs(funcs)
+	}
+	temp, err := temp.Parse(curr.ParsedSource)
+	if err != nil {
+		return panicOrError(err)
+	}
+
+	// Build map of all templates for tree-shaking
+	allTemplates := make(map[string]*htmpl.Template)
+	var allNames []string
+	for _, tmpl := range temp.Templates() {
+		if tmpl.Tree != nil && tmpl.Name() != "temp" {
+			allTemplates[tmpl.Name()] = tmpl
+			allNames = append(allNames, tmpl.Name())
+		}
+	}
+
+	// Determine which templates to include
+	var templatesToInclude map[string]bool
+	if len(curr.NamespaceEntryPoints) > 0 {
+		// Tree-shaking: only include reachable templates
+		treesMap := make(map[string]*parse.Tree)
+		for name, tmpl := range allTemplates {
+			treesMap[name] = tmpl.Tree
+		}
+		templatesToInclude = ComputeReachableTemplates(treesMap, curr.NamespaceEntryPoints)
+	} else {
+		// Include all templates
+		templatesToInclude = make(map[string]bool)
+		for _, name := range allNames {
+			templatesToInclude[name] = true
+		}
+	}
+
+	// Build rewrite map for all templates being included
+	rewrites := make(map[string]string)
+	for name := range templatesToInclude {
+		rewrites[name] = TransformName(name, curr.Namespace)
+	}
+
+	// Add namespaced templates to output
+	for name := range templatesToInclude {
+		tmpl := allTemplates[name]
+		if tmpl == nil || tmpl.Tree == nil {
+			continue
+		}
+
+		// Copy tree and apply namespace rewrites
+		copiedTree := tmpl.Tree.Copy()
+		WalkParseTree(copiedTree.Root, func(node *parse.TemplateNode) {
+			// Apply full namespace transformation rules
+			node.Name = TransformName(node.Name, curr.Namespace)
+		})
+
+		namespacedName := rewrites[name]
+		copiedTree.Name = namespacedName
+		out, err = out.AddParseTree(namespacedName, copiedTree)
+		if err != nil {
+			return panicOrError(err)
+		}
+	}
+
+	return nil
+}
+
+// processSelectiveInclude handles templates with entry points but no namespace.
+// It applies tree-shaking to only include the specified templates and their dependencies.
+func (t *TemplateGroup) processSelectiveInclude(curr *Template, out *htmpl.Template, funcs htmpl.FuncMap) error {
+	// Parse into a fresh temporary template
+	temp := htmpl.New("temp").Funcs(t.Funcs)
+	if funcs != nil {
+		temp = temp.Funcs(funcs)
+	}
+	temp, err := temp.Parse(curr.ParsedSource)
+	if err != nil {
+		return panicOrError(err)
+	}
+
+	// Build map of all templates for tree-shaking
+	treesMap := make(map[string]*parse.Tree)
+	templatesMap := make(map[string]*htmpl.Template)
+	for _, tmpl := range temp.Templates() {
+		if tmpl.Tree != nil && tmpl.Name() != "temp" {
+			treesMap[tmpl.Name()] = tmpl.Tree
+			templatesMap[tmpl.Name()] = tmpl
+		}
+	}
+
+	// Compute reachable templates
+	templatesToInclude := ComputeReachableTemplates(treesMap, curr.NamespaceEntryPoints)
+
+	// Add only reachable templates to output
+	for name := range templatesToInclude {
+		tmpl := templatesMap[name]
+		if tmpl == nil || tmpl.Tree == nil {
+			continue
+		}
+
+		out, err = out.AddParseTree(name, tmpl.Tree)
+		if err != nil {
+			return panicOrError(err)
+		}
+	}
+
+	return nil
+}
+
+// processExtensions processes all extend directives recorded on the root template.
+// For each extension, it copies the source template and rewires references.
+func (t *TemplateGroup) processExtensions(root *Template, out *htmpl.Template) error {
+	for _, ext := range root.Extensions {
+		// Find the source template
+		sourceTmpl := out.Lookup(ext.SourceTemplate)
+		if sourceTmpl == nil || sourceTmpl.Tree == nil {
+			return fmt.Errorf("extend: source template not found: %s", ext.SourceTemplate)
+		}
+
+		// Copy the tree and apply rewrites
+		copiedTree := CopyTreeWithRewrites(sourceTmpl.Tree, ext.Rewrites)
+		copiedTree.Name = ext.DestTemplate
+
+		// Add the new template
+		var err error
+		out, err = out.AddParseTree(ext.DestTemplate, copiedTree)
+		if err != nil {
+			return panicOrError(err)
+		}
+	}
+
+	return nil
 }
 
 // RenderHtmlTemplate renders a template as HTML to the provided writer.

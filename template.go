@@ -47,6 +47,39 @@ type Template struct {
 
 	// Metadata stores extracted information from the template (e.g., FrontMatter).
 	Metadata map[string]any
+
+	// Namespace is set when this template was included via namespace directive.
+	// When set, all template definitions and references will be prefixed with this namespace.
+	Namespace string
+
+	// NamespaceEntryPoints specifies which templates to include when namespacing.
+	// If empty, all templates are included. If set, only these templates and their
+	// transitive dependencies are included (tree-shaking).
+	NamespaceEntryPoints []string
+
+	// Extensions records extend directives to be processed after all templates are parsed.
+	// Each extension creates a new template by copying a source and rewiring references.
+	Extensions []Extension
+}
+
+// Extension represents an extend directive that creates a new template by copying
+// a source template and rewiring specific template references.
+//
+// Syntax: {{# extend "SourceTemplate" "DestTemplate" "block1" "override1" "block2" "override2" ... #}}
+//
+// This creates DestTemplate as a copy of SourceTemplate, but with:
+//   - {{ template "block1" . }} replaced with {{ template "override1" . }}
+//   - {{ template "block2" . }} replaced with {{ template "override2" . }}
+type Extension struct {
+	// SourceTemplate is the template to copy from (e.g., "Base:layout")
+	SourceTemplate string
+
+	// DestTemplate is the name for the new template (e.g., "Page:layout")
+	DestTemplate string
+
+	// Rewrites maps block names to their replacements.
+	// Key is the original reference, value is the replacement.
+	Rewrites map[string]string
 }
 
 // Returns the cleaned source of this template wihtout all the includes removed (but before they are preprocessed)
