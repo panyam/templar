@@ -144,6 +144,14 @@ Consider a base layout template:
 
 ## The Nested Template Problem
 
+### The Goal
+
+You have a shared component library (e.g., `EntityListing.html`) that provides a reusable listing UI with grid cards. Each card shows a preview image using a default placeholder icon. You want to customize this for your app - for example, showing actual preview images for worlds, or using a custom globe icon instead of the default placeholder.
+
+The intuitive approach would be: "I'll just extend `EntityListing` and override `GridCardPreview`." But this doesn't work as expected due to how `extend` processes templates.
+
+### The Setup
+
 Consider a component library with nested templates:
 
 ```
@@ -240,6 +248,10 @@ Consider a component library with nested templates:
 │  but GridCardPreview is called from Grid, not from EntityListing!           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Summary of the Problem
+
+The `extend` directive only rewrites template calls that appear directly in the template being extended. It doesn't "look inside" the templates that get called. So even though we wanted to override `GridCardPreview`, that template is called from `Grid`, not from `EntityListing`. Our rewrite never gets applied because `extend` only processed `EntityListing`'s own template calls.
 
 ## Solution: Chained Extensions
 
