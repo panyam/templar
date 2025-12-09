@@ -230,48 +230,69 @@ WITH tree-shaking:
 
 ## The Diamond Problem
 
-When multiple libraries include the same shared template with different namespaces, each gets its own isolated copy:
+When multiple libraries include the same shared template with different namespaces, each gets its own isolated copy. This is useful when different libraries want to extend or customize the same base component differently.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              page.html                                      │
-│                      {{# include "libA.html" #}}                            │
-│                      {{# include "libB.html" #}}                            │
-│                           /            \                                    │
-│                          /              \                                   │
-│                         ▼                ▼                                  │
-│  ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
-│  │         libA.html           │  │         libB.html           │           │
-│  │ {{# namespace "A"           │  │ {{# namespace "B"           │           │
-│  │    "shared.html" #}}        │  │    "shared.html" #}}        │           │
-│  │                             │  │                             │           │
-│  │ {{ define "libA" }}         │  │ {{ define "libB" }}         │           │
-│  │   Uses {{ template          │  │   Uses {{ template          │           │
-│  │         "A:widget" }}       │  │         "B:widget" }}       │           │
-│  │ {{ end }}                   │  │ {{ end }}                   │           │
-│  └──────────────┬──────────────┘  └──────────────┬──────────────┘           │
-│                 │                                │                          │
-│                 │ namespace "A"                  │ namespace "B"            │
-│                 ▼                                ▼                          │
+│  SOURCE FILES:                                                              │
+│                                                                             │
+│  shared.html (base button component)                                        │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          shared.html                                │    │
-│  │                   {{ define "widget" }}                             │    │
-│  │                       [WIDGET]                                      │    │
-│  │                   {{ end }}                                         │    │
+│  │ {{ define "button" }}<button class="btn">{{ .Text }}</button>{{ end }}   │
+│  │ {{ define "icon" }}<span class="icon">★</span>{{ end }}             │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
+│  adminLib.html (admin theme)              userLib.html (user theme)         │
+│  ┌───────────────────────────────┐       ┌───────────────────────────────┐  │
+│  │ {{# namespace "Admin"         │       │ {{# namespace "User"          │  │
+│  │      "shared.html" #}}        │       │      "shared.html" #}}        │  │
+│  │                               │       │                               │  │
+│  │ {{# extend "Admin:button"     │       │ {{# extend "User:button"      │  │
+│  │    "AdminBtn"                 │       │    "UserBtn"                  │  │
+│  │    "Admin:icon" "adminIcon"#}}│       │    "User:icon" "userIcon" #}} │  │
+│  │                               │       │                               │  │
+│  │ {{ define "adminIcon" }}      │       │ {{ define "userIcon" }}       │  │
+│  │   <span class="admin">⚙</span>│       │   <span class="user">♥</span> │  │
+│  │ {{ end }}                     │       │ {{ end }}                     │  │
+│  │                               │       │                               │  │
+│  │ {{ define "adminPanel" }}     │       │ {{ define "userPanel" }}      │  │
+│  │   {{ template "AdminBtn" . }} │       │   {{ template "UserBtn" . }}  │  │
+│  │ {{ end }}                     │       │ {{ end }}                     │  │
+│  └───────────────────────────────┘       └───────────────────────────────┘  │
+│                                                                             │
+│  page.html (uses both libraries)                                            │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │ RESULT: Both coexist independently!                                 │    │
+│  │ {{# include "adminLib.html" #}}                                     │    │
+│  │ {{# include "userLib.html" #}}                                      │    │
 │  │                                                                     │    │
-│  │   "A:widget" ──► [WIDGET]  (for libA)                               │    │
-│  │   "B:widget" ──► [WIDGET]  (for libB)                               │    │
-│  │   "libA"     ──► Uses A:widget                                      │    │
-│  │   "libB"     ──► Uses B:widget                                      │    │
+│  │ {{ define "page" }}                                                 │    │
+│  │   <div class="admin-section">{{ template "adminPanel" . }}</div>    │    │
+│  │   <div class="user-section">{{ template "userPanel" . }}</div>      │    │
+│  │ {{ end }}                                                           │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Output: "LibA uses [WIDGET] AND LibB uses [WIDGET]"
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  RESULT: Each library has its own customized copy                           │
+│                                                                             │
+│  From adminLib:                       From userLib:                         │
+│  ┌───────────────────────────┐       ┌───────────────────────────────┐      │
+│  │ Admin:button (base)       │       │ User:button (base)            │      │
+│  │ Admin:icon   (base)       │       │ User:icon   (base)            │      │
+│  │ AdminBtn     (extended,   │       │ UserBtn     (extended,        │      │
+│  │              uses ⚙ icon) │       │              uses ♥ icon)     │      │
+│  │ adminPanel   (uses AdminBtn)      │ userPanel   (uses UserBtn)    │      │
+│  └───────────────────────────┘       └───────────────────────────────┘      │
+│                                                                             │
+│  No conflict! Admin gets ⚙ buttons, User gets ♥ buttons.                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Output (with .Text = "Click"):
+  Admin section: <button class="btn">Click<span class="admin">⚙</span></button>
+  User section:  <button class="btn">Click<span class="user">♥</span></button>
 ```
+
+The key insight: Both libraries start from the same `shared.html`, but each namespaces it differently and applies its own customizations via `extend`. The isolated namespaces prevent the customizations from interfering with each other.
 
 ## Combining Namespace and Extend
 
