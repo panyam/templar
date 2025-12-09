@@ -199,7 +199,37 @@ Non-overridden blocks retain their original references to the base templates.
 
 **Important**: The `extend` directive only rewrites template calls within the copied template itself, not in templates it calls. For nested overrides, you need to extend each level of the hierarchy. See [extend.md](docs/extend.md) for detailed examples, visual diagrams, and common gotchas.
 
-### 4. External Template Sources (Vendoring)
+### 4. Multiple Template Loaders
+
+Templar allows you to configure multiple template loaders with fallback behavior:
+
+```go
+// Create a list of loaders to search in order
+loaderList := &templar.LoaderList{}
+
+// Add loaders in priority order
+loaderList.AddLoader(templar.NewFileSystemLoader("app/templates/"))
+loaderList.AddLoader(templar.NewFileSystemLoader("shared/templates/"))
+
+// Set a default loader as final fallback
+loaderList.DefaultLoader = templar.NewFileSystemLoader("default/templates/")
+```
+
+### 5. Template Groups
+
+Template groups manage collections of templates and their dependencies:
+
+```go
+group := templar.NewTemplateGroup()
+group.Loader = loaderList
+group.AddFuncs(map[string]any{
+    "formatDate": func(t time.Time) string {
+        return t.Format("2006-01-02")
+    },
+})
+```
+
+### 6. External Template Sources (Vendoring)
 
 Load templates from external sources like GitHub repositories:
 
@@ -236,36 +266,6 @@ templar get --verify     # Verify local matches lock file
 ```
 
 See [vendoring.md](docs/vendoring.md) for deployment strategies, configuration reference, and examples.
-
-### 5. Multiple Template Loaders
-
-Templar allows you to configure multiple template loaders with fallback behavior:
-
-```go
-// Create a list of loaders to search in order
-loaderList := &templar.LoaderList{}
-
-// Add loaders in priority order
-loaderList.AddLoader(templar.NewFileSystemLoader("app/templates/"))
-loaderList.AddLoader(templar.NewFileSystemLoader("shared/templates/"))
-
-// Set a default loader as final fallback
-loaderList.DefaultLoader = templar.NewFileSystemLoader("default/templates/")
-```
-
-### 6. Template Groups
-
-Template groups manage collections of templates and their dependencies:
-
-```go
-group := templar.NewTemplateGroup()
-group.Loader = loaderList
-group.AddFuncs(map[string]any{
-    "formatDate": func(t time.Time) string {
-        return t.Format("2006-01-02")
-    },
-})
-```
 
 ## Advanced Usage
 
