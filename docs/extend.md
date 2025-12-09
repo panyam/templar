@@ -92,27 +92,27 @@ Consider a base layout template:
 ### Result after extension:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  BEFORE extend                              AFTER extend                    │
-│                                                                             │
-│  ┌─────────────────────────────────┐       ┌─────────────────────────────┐  │
-│  │ Base:layout                     │       │ MyLayout                    │  │
-│  │ ┌─────────────────────────────┐ │       │ ┌─────────────────────────┐ │  │
-│  │ │ {{ template "Base:title" }} │ │  ───► │ │ {{ template "myTitle" }}│ │  │
-│  │ │ {{ template "Base:header" }}│ │       │ │ {{ template "Base:header"}}  │
-│  │ │ {{ template "Base:content"}}│ │  ───► │ │ {{ template "myContent"}}│ │  │
-│  │ │ {{ template "Base:footer" }}│ │       │ │ {{ template "Base:footer"}}  │
-│  │ └─────────────────────────────┘ │       │ └─────────────────────────┘ │  │
-│  └─────────────────────────────────┘       └─────────────────────────────┘  │
-│                                                                             │
-│  Rewrite Map:                                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  "Base:title"   ──────────────────────────────────►  "myTitle"      │    │
-│  │  "Base:content" ──────────────────────────────────►  "myContent"    │    │
-│  │  "Base:header"  ─── (not in map) ─────────────────►  unchanged      │    │
-│  │  "Base:footer"  ─── (not in map) ─────────────────►  unchanged      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  BEFORE extend                              AFTER extend                       │
+│                                                                                │
+│  ┌─────────────────────────────────┐       ┌────────────────────────────────┐  │
+│  │ Base:layout                     │       │ MyLayout                       │  │
+│  │ ┌─────────────────────────────┐ │       │ ┌────────────────────────────┐ │  │
+│  │ │ {{ template "Base:title" }} │ │  ───► │ │ {{ template "myTitle" }}   │ │  │
+│  │ │ {{ template "Base:header" }}│ │       │ │ {{ template "Base:header"}}│ │  │
+│  │ │ {{ template "Base:content"}}│ │  ───► │ │ {{ template "myContent"}}  │ │  │
+│  │ │ {{ template "Base:footer" }}│ │       │ │ {{ template "Base:footer"}}│ │  │
+│  │ └─────────────────────────────┘ │       │ └────────────────────────────┘ │  │
+│  └─────────────────────────────────┘       └────────────────────────────────┘  │
+│                                                                                │
+│  Rewrite Map:                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐       │
+│  │  "Base:title"   ──────────────────────────────────►  "myTitle"      │       │
+│  │  "Base:content" ──────────────────────────────────►  "myContent"    │       │
+│  │  "Base:header"  ─── (not in map) ─────────────────►  unchanged      │       │
+│  │  "Base:footer"  ─── (not in map) ─────────────────►  unchanged      │       │
+│  └─────────────────────────────────────────────────────────────────────┘       │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Critical Concept: Rewrites Only Apply to the Extended Template
@@ -522,17 +522,17 @@ Only override what you need - non-specified calls remain unchanged:
 ### 3. Template names must match exactly
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  If base calls {{ template "Base:header" . }}:                  │
-│                                                                 │
-│  WRONG - name doesn't match:                                    │
-│  {{# extend "Base:layout" "MyLayout" "header" "myHeader" #}}    │
-│                                     ^^^^^^^^                    │
-│                                     should be "Base:header"     │
-│                                                                 │
-│  CORRECT - exact match:                                         │
-│  {{# extend "Base:layout" "MyLayout" "Base:header" "myHeader" #}}
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  If base calls {{ template "Base:header" . }}:                    │
+│                                                                   │
+│  WRONG - name doesn't match:                                      │
+│  {{# extend "Base:layout" "MyLayout" "header" "myHeader" #}}      │
+│                                     ^^^^^^^^                      │
+│                                     should be "Base:header"       │
+│                                                                   │
+│  CORRECT - exact match:                                           │
+│  {{# extend "Base:layout" "MyLayout" "Base:header" "myHeader" #}} │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ### 4. Order matters for chained extensions
@@ -554,23 +554,23 @@ Only override what you need - non-specified calls remain unchanged:
 ### 5. Don't forget all call sites
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  If EntityListing has BOTH Grid and Table views:                │
-│                                                                 │
-│  EntityListing ──► Grid ──► GridCardPreview                     │
-│               └──► Table ──► TableRowPreview ──► uses same icon │
-│                                                                 │
-│  INCOMPLETE - only fixes Grid view:                             │
-│  {{# extend "EL:Grid" "MyGrid" ... #}}                          │
-│  {{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
-│                                                                 │
-│  COMPLETE - fixes both views:                                   │
-│  {{# extend "EL:Grid" "MyGrid" ... #}}                          │
-│  {{# extend "EL:Table" "MyTable" ... #}}                        │
-│  {{# extend "EL:EntityListing" "MyListing"                      │
-│             "EL:Grid" "MyGrid"                                  │
-│             "EL:Table" "MyTable" #}}                            │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  If EntityListing has BOTH Grid and Table views:                  │
+│                                                                   │
+│  EntityListing ──► Grid ──► GridCardPreview                       │
+│               └──► Table ──► TableRowPreview ──► uses same icon   │
+│                                                                   │
+│  INCOMPLETE - only fixes Grid view:                               │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}                            │
+│  {{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}} │
+│                                                                   │
+│  COMPLETE - fixes both views:                                     │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}                            │
+│  {{# extend "EL:Table" "MyTable" ... #}}                          │
+│  {{# extend "EL:EntityListing" "MyListing"                        │
+│             "EL:Grid" "MyGrid"                                    │
+│             "EL:Table" "MyTable" #}}                              │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Debugging Tips
