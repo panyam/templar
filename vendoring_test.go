@@ -550,6 +550,286 @@ func TestSourceLoader_RelativePathsInVendoredTemplates(t *testing.T) {
 	}
 }
 
+// TestLoadVendorConfig tests loading VendorConfig from a templar.yaml file
+func TestLoadVendorConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create templar.yaml
+	configContent := `
+sources:
+  uikit:
+    url: github.com/example/uikit
+    path: templates
+    ref: v1.0.0
+  icons:
+    url: github.com/example/icons
+    ref: main
+
+vendor_dir: ./templar_modules
+
+search_paths:
+  - ./templates
+  - ./shared
+
+require_lock: true
+`
+	configPath := filepath.Join(tmpDir, "templar.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	config, err := LoadVendorConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Check sources
+	if len(config.Sources) != 2 {
+		t.Errorf("Expected 2 sources, got %d", len(config.Sources))
+	}
+
+	uikit, ok := config.Sources["uikit"]
+	if !ok {
+		t.Error("Expected 'uikit' source")
+	} else {
+		if uikit.URL != "github.com/example/uikit" {
+			t.Errorf("Expected URL 'github.com/example/uikit', got '%s'", uikit.URL)
+		}
+		if uikit.Path != "templates" {
+			t.Errorf("Expected path 'templates', got '%s'", uikit.Path)
+		}
+		if uikit.Ref != "v1.0.0" {
+			t.Errorf("Expected ref 'v1.0.0', got '%s'", uikit.Ref)
+		}
+	}
+
+	icons, ok := config.Sources["icons"]
+	if !ok {
+		t.Error("Expected 'icons' source")
+	} else {
+		if icons.Path != "" {
+			t.Errorf("Expected empty path for icons, got '%s'", icons.Path)
+		}
+	}
+
+	// Check vendor_dir
+	if config.VendorDir != "./templar_modules" {
+		t.Errorf("Expected vendor_dir './templar_modules', got '%s'", config.VendorDir)
+	}
+
+	// Check search_paths
+	if len(config.SearchPaths) != 2 {
+		t.Errorf("Expected 2 search paths, got %d", len(config.SearchPaths))
+	}
+
+	// Check require_lock
+	if !config.RequireLock {
+		t.Error("Expected require_lock to be true")
+	}
+}
+
+// TestLoadVendorConfig_Defaults tests that missing fields get sensible defaults
+func TestLoadVendorConfig_Defaults(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Minimal config - just sources
+	configContent := `
+sources:
+  uikit:
+    url: github.com/example/uikit
+    ref: v1.0.0
+`
+	configPath := filepath.Join(tmpDir, "templar.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	config, err := LoadVendorConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Should have default vendor_dir
+	if config.VendorDir != "./templar_modules" {
+		t.Errorf("Expected default vendor_dir './templar_modules', got '%s'", config.VendorDir)
+	}
+
+	// Should have default search_paths
+	if len(config.SearchPaths) != 2 {
+		t.Errorf("Expected 2 default search paths, got %d", len(config.SearchPaths))
+	}
+}
+
+// TestLoadVendorConfig_NotFound tests error when config file doesn't exist
+func TestLoadVendorConfig_NotFound(t *testing.T) {
+	_, err := LoadVendorConfig("/nonexistent/templar.yaml")
+	if err == nil {
+		t.Error("Expected error for missing config file")
+	}
+}
+
+// TestFindVendorConfig tests finding templar.yaml in current or parent directories
+func TestFindVendorConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create nested directory structure
+	subDir := filepath.Join(tmpDir, "sub", "project")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdirs: %v", err)
+	}
+
+	// Create templar.yaml in root
+	configContent := `
+sources:
+  uikit:
+    url: github.com/example/uikit
+    ref: v1.0.0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "templar.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	// Should find config from subdirectory
+	foundPath, err := FindVendorConfig(subDir)
+	if err != nil {
+		t.Fatalf("Failed to find config: %v", err)
+	}
+
+	expectedPath := filepath.Join(tmpDir, "templar.yaml")
+	if foundPath != expectedPath {
+		t.Errorf("Expected to find '%s', got '%s'", expectedPath, foundPath)
+	}
+}
+
+// TestNewSourceLoaderFromConfig tests creating a SourceLoader from a config file
+func TestNewSourceLoaderFromConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create directory structure
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "uikit", "templates")
+	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+		t.Fatalf("Failed to create vendor dir: %v", err)
+	}
+
+	templatesDir := filepath.Join(tmpDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("Failed to create templates dir: %v", err)
+	}
+
+	// Create vendored template
+	cardContent := `{{ define "Card" }}<div class="card">{{ .Title }}</div>{{ end }}`
+	if err := os.WriteFile(filepath.Join(vendorDir, "card.html"), []byte(cardContent), 0644); err != nil {
+		t.Fatalf("Failed to write card.html: %v", err)
+	}
+
+	// Create page template
+	pageContent := `{{# namespace "UI" "@uikit/templates/card.html" #}}
+{{ define "page" }}{{ template "UI:Card" . }}{{ end }}`
+	if err := os.WriteFile(filepath.Join(templatesDir, "page.html"), []byte(pageContent), 0644); err != nil {
+		t.Fatalf("Failed to write page.html: %v", err)
+	}
+
+	// Create templar.yaml
+	configContent := `
+sources:
+  uikit:
+    url: github.com/example/uikit
+    ref: v1.0.0
+
+vendor_dir: ./templar_modules
+
+search_paths:
+  - ./templates
+`
+	configPath := filepath.Join(tmpDir, "templar.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	// Create loader from config
+	loader, err := NewSourceLoaderFromConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to create loader from config: %v", err)
+	}
+
+	// Use the loader
+	group := NewTemplateGroup()
+	group.Loader = loader
+
+	templates, err := group.Loader.Load("page.html", "")
+	if err != nil {
+		t.Fatalf("Failed to load page.html: %v", err)
+	}
+
+	var buf bytes.Buffer
+	err = group.RenderHtmlTemplate(&buf, templates[0], "page", map[string]any{"Title": "Test"}, nil)
+	if err != nil {
+		t.Fatalf("Failed to render: %v", err)
+	}
+
+	result := buf.String()
+	if !strings.Contains(result, "<div class=\"card\">Test</div>") {
+		t.Errorf("Expected card div, got: %s", result)
+	}
+}
+
+// TestNewSourceLoaderFromDir tests finding config and creating loader from a subdirectory
+func TestNewSourceLoaderFromDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create nested directory structure
+	subDir := filepath.Join(tmpDir, "src", "pages")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdirs: %v", err)
+	}
+
+	// Create templar.yaml in root
+	configContent := `
+sources:
+  uikit:
+    url: github.com/example/uikit
+    ref: v1.0.0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "templar.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	// Create loader from subdirectory
+	loader, err := NewSourceLoaderFromDir(subDir)
+	if err != nil {
+		t.Fatalf("Failed to create loader from dir: %v", err)
+	}
+
+	// Verify the config was found and loaded
+	if loader.config == nil {
+		t.Error("Expected config to be loaded")
+	}
+
+	if _, ok := loader.config.Sources["uikit"]; !ok {
+		t.Error("Expected 'uikit' source to be in config")
+	}
+}
+
 // TestVendorLock_VerifyIntegrity tests that lock file can verify vendored files haven't changed
 func TestVendorLock_VerifyIntegrity(t *testing.T) {
 	t.Skip("VendorLock verification not yet implemented")
