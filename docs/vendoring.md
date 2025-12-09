@@ -337,24 +337,23 @@ myapp/
 ├── templar.lock
 ├── templates/
 │   ├── pages/
-│   │   ├── WorldListingPage.html
-│   │   └── GameListingPage.html
-│   └── BasePage.html
+│   │   └── product-list.html
+│   └── base.html
 └── templar_modules/
     └── github.com/
-        └── panyam/
-            └── goapplib/
+        └── example/
+            └── uikit/
                 └── templates/
                     └── components/
-                        └── EntityListing.html
+                        └── card.html
 ```
 
 ### templar.yaml
 
 ```yaml
 sources:
-  goapplib:
-    url: github.com/panyam/goapplib
+  uikit:
+    url: github.com/example/uikit
     path: templates
     ref: v1.0.0
 
