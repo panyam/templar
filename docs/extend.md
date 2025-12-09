@@ -20,158 +20,296 @@ When you use `extend`, templar:
 3. **Rewrites** any matching template names according to the rewrite pairs
 4. **Registers** the result as a new template with the destination name
 
-### Important: Rewrites Only Apply to the Extended Template
-
-The key thing to understand is that `extend` only rewrites template calls **within the source template itself**. It does not recursively rewrite calls in templates that the source template calls.
-
 ## Visual Example: Simple Extension
 
 Consider a base layout template:
 
 ```
-┌─────────────────────────────────────────┐
-│  Base:layout                            │
-│  ┌───────────────────────────────────┐  │
-│  │ <html>                            │  │
-│  │   {{ template "Base:header" . }}  │──┼──► calls Base:header
-│  │   {{ template "Base:content" . }} │──┼──► calls Base:content
-│  │   {{ template "Base:footer" . }}  │──┼──► calls Base:footer
-│  │ </html>                           │  │
-│  └───────────────────────────────────┘  │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  base.html                                                                  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ {{ define "Base:layout" }}                                            │  │
+│  │ <html>                                                                │  │
+│  │   <head>{{ template "Base:title" . }}</head>     ───────┐             │  │
+│  │   <body>                                                │             │  │
+│  │     {{ template "Base:header" . }}    ──────────────────┼──┐          │  │
+│  │     {{ template "Base:content" . }}   ──────────────────┼──┼──┐       │  │
+│  │     {{ template "Base:footer" . }}    ──────────────────┼──┼──┼──┐    │  │
+│  │   </body>                                               │  │  │  │    │  │
+│  │ </html>                                                 │  │  │  │    │  │
+│  │ {{ end }}                                               │  │  │  │    │  │
+│  └─────────────────────────────────────────────────────────│──│──│──│────┘  │
+│                                                            │  │  │  │       │
+│  ┌─────────────────────────────────────────────────────────│──│──│──│────┐  │
+│  │ {{ define "Base:title" }}   ◄───────────────────────────┘  │  │  │    │  │
+│  │   <title>Default Title</title>                             │  │  │    │  │
+│  │ {{ end }}                                                  │  │  │    │  │
+│  ├────────────────────────────────────────────────────────────│──│──│────┤  │
+│  │ {{ define "Base:header" }}  ◄──────────────────────────────┘  │  │    │  │
+│  │   <header>Default Header</header>                             │  │    │  │
+│  │ {{ end }}                                                     │  │    │  │
+│  ├───────────────────────────────────────────────────────────────│──│────┤  │
+│  │ {{ define "Base:content" }} ◄─────────────────────────────────┘  │    │  │
+│  │   <main>Default Content</main>                                   │    │  │
+│  │ {{ end }}                                                        │    │  │
+│  ├──────────────────────────────────────────────────────────────────│────┤  │
+│  │ {{ define "Base:footer" }}  ◄────────────────────────────────────┘    │  │
+│  │   <footer>Default Footer</footer>                                     │  │
+│  │ {{ end }}                                                             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Using extend to create a custom layout:
+### Using extend to customize:
 
 ```html
+{{# namespace "Base" "base.html" #}}
 {{# extend "Base:layout" "MyLayout"
-           "Base:header" "myHeader"
+           "Base:title" "myTitle"
            "Base:content" "myContent" #}}
 
-{{ define "myHeader" }}<h1>My Site</h1>{{ end }}
-{{ define "myContent" }}<p>Welcome!</p>{{ end }}
+{{ define "myTitle" }}<title>My Custom Page</title>{{ end }}
+{{ define "myContent" }}<main>Hello World!</main>{{ end }}
 ```
 
-Result:
+### Result after extension:
 
 ```
-┌─────────────────────────────────────────┐
-│  MyLayout (copied from Base:layout)     │
-│  ┌───────────────────────────────────┐  │
-│  │ <html>                            │  │
-│  │   {{ template "myHeader" . }}     │──┼──► rewired to myHeader
-│  │   {{ template "myContent" . }}    │──┼──► rewired to myContent
-│  │   {{ template "Base:footer" . }}  │──┼──► unchanged (not in rewrite list)
-│  │ </html>                           │  │
-│  └───────────────────────────────────┘  │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  BEFORE extend                              AFTER extend                    │
+│                                                                             │
+│  ┌─────────────────────────────────┐       ┌─────────────────────────────┐  │
+│  │ Base:layout                     │       │ MyLayout                    │  │
+│  │ ┌─────────────────────────────┐ │       │ ┌─────────────────────────┐ │  │
+│  │ │ {{ template "Base:title" }} │ │  ───► │ │ {{ template "myTitle" }}│ │  │
+│  │ │ {{ template "Base:header" }}│ │       │ │ {{ template "Base:header"}}  │
+│  │ │ {{ template "Base:content"}}│ │  ───► │ │ {{ template "myContent"}}│ │  │
+│  │ │ {{ template "Base:footer" }}│ │       │ │ {{ template "Base:footer"}}  │
+│  │ └─────────────────────────────┘ │       │ └─────────────────────────┘ │  │
+│  └─────────────────────────────────┘       └─────────────────────────────┘  │
+│                                                                             │
+│  Rewrite Map:                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  "Base:title"   ──────────────────────────────────►  "myTitle"      │    │
+│  │  "Base:content" ──────────────────────────────────►  "myContent"    │    │
+│  │  "Base:header"  ─── (not in map) ─────────────────►  unchanged      │    │
+│  │  "Base:footer"  ─── (not in map) ─────────────────►  unchanged      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Critical Concept: Rewrites Only Apply to the Extended Template
+
+**The most important thing to understand**: `extend` only rewrites template calls **within the source template itself**. It does NOT recursively rewrite calls in templates that the source template calls.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  What extend DOES rewrite:                                                  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Source Template (being copied)                                     │    │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
+│  │  │  {{ template "X" }}  ◄──────────── THIS gets rewritten        │  │    │
+│  │  │  {{ template "Y" }}  ◄──────────── THIS gets rewritten        │  │    │
+│  │  └───────────────────────────────────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  What extend does NOT rewrite:                                              │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Template "X" (called by source, but separate template)             │    │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
+│  │  │  {{ template "Z" }}  ◄──────────── NOT rewritten!             │  │    │
+│  │  └───────────────────────────────────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## The Nested Template Problem
 
-Consider a more complex scenario with nested templates:
+Consider a component library with nested templates:
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  EntityListing                                               │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ {{ template "PageHeader" . }}                          │  │
-│  │ {{ template "Grid" . }}        ─────────────┐          │  │
-│  │ {{ template "Table" . }}                    │          │  │
-│  └─────────────────────────────────────────────│──────────┘  │
-└────────────────────────────────────────────────│─────────────┘
-                                                 │
-                                                 ▼
-┌──────────────────────────────────────────────────────────────┐
-│  Grid (separate template)                                    │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ {{ range .Items }}                                     │  │
-│  │   {{ template "GridCardPreview" . }}  ◄── NOT rewired! │  │
-│  │   {{ template "GridCardMeta" . }}                      │  │
-│  │ {{ end }}                                              │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  EntityListing.html - A reusable listing component                          │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ {{ define "EntityListing" }}                                          │  │
+│  │   {{ template "PageHeader" . }}                                       │  │
+│  │   {{ if .Items }}                                                     │  │
+│  │       {{ template "Grid" . }}  ─────────────────────────┐             │  │
+│  │       {{ template "Table" . }}                          │             │  │
+│  │   {{ else }}                                            │             │  │
+│  │       {{ template "EmptyState" . }}                     │             │  │
+│  │   {{ end }}                                             │             │  │
+│  │ {{ end }}                                               │             │  │
+│  └─────────────────────────────────────────────────────────│─────────────┘  │
+│                                                            │                │
+│                                                            ▼                │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ {{ define "Grid" }}                    ◄── SEPARATE template          │  │
+│  │   <div class="grid">                                                  │  │
+│  │     {{ range .Items }}                                                │  │
+│  │       <div class="card">                                              │  │
+│  │         {{ template "GridCardPreview" . }}  ◄── call inside Grid      │  │
+│  │         {{ template "GridCardMeta" . }}                               │  │
+│  │         <h3>{{ .Name }}</h3>                                          │  │
+│  │       </div>                                                          │  │
+│  │     {{ end }}                                                         │  │
+│  │   </div>                                                              │  │
+│  │ {{ end }}                                                             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ {{ define "GridCardPreview" }}                                        │  │
+│  │   <div class="preview">                                               │  │
+│  │     {{ template "GridCardPlaceholder" . }}                            │  │
+│  │   </div>                                                              │  │
+│  │ {{ end }}                                                             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ {{ define "GridCardPlaceholder" }}                                    │  │
+│  │   <svg class="placeholder-icon">...</svg>   ◄── default blue icon     │  │
+│  │ {{ end }}                                                             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-If you try to extend just EntityListing:
+### The Wrong Approach (doesn't work):
 
 ```html
+{{# namespace "EL" "EntityListing.html" #}}
+
+{{/* Try to override GridCardPreview */}}
 {{# extend "EL:EntityListing" "MyListing"
            "EL:GridCardPreview" "MyPreview" #}}
+
+{{ define "MyPreview" }}
+  <img src="{{ .ImageUrl }}" />
+{{ end }}
 ```
 
-**This won't work as expected!** The `GridCardPreview` call is inside `Grid`, not inside `EntityListing`. When `extend` copies `EntityListing`, it only sees and rewrites calls in `EntityListing` itself - it doesn't look inside `Grid`.
+### Why it fails:
 
 ```
-EntityListing calls Grid ──► Grid calls GridCardPreview
-      │                              │
-      │ extend copies this           │ but NOT this!
-      ▼                              ▼
-MyListing calls Grid ──────► Grid still calls GridCardPreview (unchanged)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  extend "EL:EntityListing" → "MyListing"                                    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ MyListing (copied from EL:EntityListing)                            │    │
+│  │                                                                     │    │
+│  │   {{ template "EL:Grid" . }}    ◄── This call is in EntityListing   │    │
+│  │                │                    so it COULD be rewritten...     │    │
+│  │                │                    but we didn't include it in     │    │
+│  │                │                    the rewrite map!                │    │
+│  │                │                                                    │    │
+│  │                ▼                                                    │    │
+│  │   ┌─────────────────────────────────────────────────────────────┐   │    │
+│  │   │ EL:Grid (NOT copied, original template)                     │   │    │
+│  │   │                                                             │   │    │
+│  │   │   {{ template "EL:GridCardPreview" . }}  ◄── This call is   │   │    │
+│  │   │                │                            inside Grid,    │   │    │
+│  │   │                │                            NOT in the      │   │    │
+│  │   │                │                            copied template │   │    │
+│  │   │                │                            so it's NEVER   │   │    │
+│  │   │                │                            rewritten!      │   │    │
+│  │   │                ▼                                            │   │    │
+│  │   │   Still calls EL:GridCardPreview (default blue icon)        │   │    │
+│  │   └─────────────────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  The rewrite map only affected EntityListing's direct template calls,       │
+│  but GridCardPreview is called from Grid, not from EntityListing!           │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Solution: Chained Extensions
 
-To properly override nested template calls, extend each level of the template hierarchy:
-
-```html
-{{/* Step 1: Extend Grid with our custom preview */}}
-{{# extend "EL:Grid" "MyGrid"
-           "EL:GridCardPreview" "MyPreview"
-           "EL:GridCardMeta" "MyMeta" #}}
-
-{{/* Step 2: Extend Table with our custom row preview */}}
-{{# extend "EL:Table" "MyTable"
-           "EL:TableRowPreview" "MyRowPreview" #}}
-
-{{/* Step 3: Extend EntityListing to use our custom Grid and Table */}}
-{{# extend "EL:EntityListing" "MyListing"
-           "EL:Grid" "MyGrid"
-           "EL:Table" "MyTable"
-           "EL:EmptyStateIcon" "MyEmptyIcon" #}}
-```
-
-This creates a chain of extended templates:
+To override templates at any level, you need to extend each level in the chain:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  BEFORE: Original template chain                                            │
+│  STEP 1: Extend Grid to use custom preview                                  │
 │                                                                             │
-│  EntityListing ──► Grid ──► GridCardPreview ──► GridCardPlaceholder         │
-│                      │                                                       │
-│                      └──► GridCardMeta                                       │
+│  {{# extend "EL:Grid" "MyGrid"                                              │
+│             "EL:GridCardPreview" "MyPreview" #}}                            │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ EL:Grid                              MyGrid                         │    │
+│  │ ┌───────────────────────┐           ┌───────────────────────┐       │    │
+│  │ │ {{ template           │   ───►    │ {{ template           │       │    │
+│  │ │   "EL:GridCardPreview"│           │   "MyPreview" . }}    │       │    │
+│  │ │    . }}               │           │                       │       │    │
+│  │ └───────────────────────┘           └───────────────────────┘       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  STEP 2: Extend EntityListing to use custom Grid                            │
+│                                                                             │
+│  {{# extend "EL:EntityListing" "MyListing"                                  │
+│             "EL:Grid" "MyGrid" #}}                                          │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ EL:EntityListing                     MyListing                      │    │
+│  │ ┌───────────────────────┐           ┌───────────────────────┐       │    │
+│  │ │ {{ template           │   ───►    │ {{ template           │       │    │
+│  │ │   "EL:Grid" . }}      │           │   "MyGrid" . }}       │       │    │
+│  │ └───────────────────────┘           └───────────────────────┘       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  STEP 3: Define custom templates                                            │
+│                                                                             │
+│  {{ define "MyPreview" }}                                                   │
+│    <img src="{{ .ImageUrl }}" />                                            │
+│  {{ end }}                                                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
 
+### The complete call chain after chained extensions:
+
+```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  AFTER: Extended template chain                                             │
+│  BEFORE (original chain):                                                   │
 │                                                                             │
-│  MyListing ──► MyGrid ──► MyPreview ──► MyPlaceholder                       │
-│       │           │                                                          │
-│       │           └──► MyMeta                                                │
-│       │                                                                      │
-│       └──► MyTable ──► MyRowPreview                                          │
+│  EL:EntityListing ──► EL:Grid ──► EL:GridCardPreview ──► EL:Placeholder     │
+│        │                 │               │                    │             │
+│        │                 │               │                    └─ blue icon  │
+│        │                 │               └─ default preview                 │
+│        │                 └─ default grid                                    │
+│        └─ main listing                                                      │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  AFTER (extended chain):                                                    │
+│                                                                             │
+│  MyListing ──────────► MyGrid ──────► MyPreview ──────────► MyPlaceholder   │
+│        │                  │               │                       │         │
+│        │                  │               │                       └─ custom │
+│        │                  │               │                          icon   │
+│        │                  │               └─ shows actual image             │
+│        │                  └─ rewired grid                                   │
+│        └─ rewired listing                                                   │
+│                                                                             │
+│  Each arrow represents a {{ template "..." }} call that was rewritten       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Complete Real-World Example
 
-Here's a complete example showing how to extend a shared EntityListing component with app-specific customizations:
-
-### Base Template (goapplib/components/EntityListing.html)
+### Base Component (goapplib/components/EntityListing.html)
 
 ```html
 {{ define "GridCardPlaceholder" }}
-<svg class="w-16 h-16 text-blue-200">...</svg>
+<svg class="w-16 h-16 text-blue-200"><!-- default icon --></svg>
 {{ end }}
 
 {{ define "GridCardPreview" }}
-<div class="flex items-center justify-center h-full">
-    {{ template "GridCardPlaceholder" $ }}
-</div>
+<div class="preview">{{ template "GridCardPlaceholder" $ }}</div>
 {{ end }}
 
 {{ define "Grid" }}
-<div class="grid grid-cols-4 gap-6">
+<div class="grid">
     {{ range .Items }}
     <div class="card">
         {{ template "GridCardPreview" . }}
@@ -184,11 +322,7 @@ Here's a complete example showing how to extend a shared EntityListing component
 {{ define "EntityListing" }}
 <div>
     {{ template "PageHeader" . }}
-    {{ if .Items }}
-        {{ template "Grid" . }}
-    {{ else }}
-        {{ template "EmptyState" . }}
-    {{ end }}
+    {{ if .Items }}{{ template "Grid" . }}{{ end }}
 </div>
 {{ end }}
 ```
@@ -200,143 +334,166 @@ Here's a complete example showing how to extend a shared EntityListing component
 
 {{/* Define world-specific templates */}}
 {{ define "WorldPlaceholder" }}
-<svg class="w-16 h-16 text-green-200">
-    <!-- globe icon -->
-</svg>
+<svg class="w-16 h-16 text-green-200"><!-- globe icon --></svg>
 {{ end }}
 
 {{ define "WorldPreview" }}
-{{ if and .PreviewUrls (index .PreviewUrls 0) }}
-    <img src="{{ index .PreviewUrls 0 }}" class="w-full h-full object-cover">
+{{ if .PreviewUrl }}
+    <img src="{{ .PreviewUrl }}" class="w-full h-full object-cover">
 {{ else }}
-    <div class="flex items-center justify-center h-full">
-        {{ template "WorldPlaceholder" $ }}
-    </div>
+    <div class="preview">{{ template "WorldPlaceholder" $ }}</div>
 {{ end }}
 {{ end }}
 
-{{/* Chain of extensions */}}
+{{/* Chain of extensions - from inside out */}}
 {{# extend "EL:Grid" "WorldGrid"
            "EL:GridCardPreview" "WorldPreview" #}}
 
 {{# extend "EL:EntityListing" "WorldListing"
            "EL:Grid" "WorldGrid" #}}
 
-{{/* Use the extended template */}}
+{{/* Use the fully customized listing */}}
 {{ define "BodySection" }}
-<main>
-    {{ template "WorldListing" .ListingData }}
-</main>
+<main>{{ template "WorldListing" .ListingData }}</main>
 {{ end }}
 ```
 
-## Visualization of the Extension Process
+### Visual representation of the extension:
 
 ```
-STEP 1: Load with namespace
-┌──────────────────────────────────────────────────┐
-│ Available templates after namespace:             │
-│   EL:GridCardPlaceholder                         │
-│   EL:GridCardPreview  ─► calls GridCardPlaceholder
-│   EL:Grid             ─► calls GridCardPreview   │
-│   EL:EntityListing    ─► calls Grid              │
-└──────────────────────────────────────────────────┘
-
-STEP 2: Define custom templates
-┌──────────────────────────────────────────────────┐
-│ Added templates:                                 │
-│   WorldPlaceholder  (custom globe icon)          │
-│   WorldPreview      ─► calls WorldPlaceholder    │
-└──────────────────────────────────────────────────┘
-
-STEP 3: extend "EL:Grid" → "WorldGrid"
-┌──────────────────────────────────────────────────┐
-│ Copy EL:Grid, rewrite EL:GridCardPreview         │
-│                                                  │
-│   WorldGrid ─► calls WorldPreview (rewired!)     │
-└──────────────────────────────────────────────────┘
-
-STEP 4: extend "EL:EntityListing" → "WorldListing"
-┌──────────────────────────────────────────────────┐
-│ Copy EL:EntityListing, rewrite EL:Grid           │
-│                                                  │
-│   WorldListing ─► calls WorldGrid (rewired!)     │
-└──────────────────────────────────────────────────┘
-
-FINAL CALL CHAIN:
-WorldListing → WorldGrid → WorldPreview → WorldPlaceholder
-     │              │            │              │
-     │              │            │              └── custom globe icon
-     │              │            └── custom image handling
-     │              └── rewired Grid template
-     └── rewired EntityListing template
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Extension Chain for WorldListingPage                                       │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Step 1: extend "EL:Grid" → "WorldGrid"                             │    │
+│  │                                                                     │    │
+│  │  EL:Grid                                WorldGrid                   │    │
+│  │  ┌──────────────────────────┐          ┌──────────────────────────┐ │    │
+│  │  │ calls EL:GridCardPreview │   ──►    │ calls WorldPreview       │ │    │
+│  │  │ calls EL:GridCardMeta    │          │ calls EL:GridCardMeta    │ │    │
+│  │  └──────────────────────────┘          └──────────────────────────┘ │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Step 2: extend "EL:EntityListing" → "WorldListing"                 │    │
+│  │                                                                     │    │
+│  │  EL:EntityListing                       WorldListing                │    │
+│  │  ┌──────────────────────────┐          ┌──────────────────────────┐ │    │
+│  │  │ calls EL:Grid            │   ──►    │ calls WorldGrid          │ │    │
+│  │  │ calls EL:Table           │          │ calls EL:Table           │ │    │
+│  │  │ calls EL:EmptyState      │          │ calls EL:EmptyState      │ │    │
+│  │  └──────────────────────────┘          └──────────────────────────┘ │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Final Result:                                                      │    │
+│  │                                                                     │    │
+│  │  WorldListing                                                       │    │
+│  │       │                                                             │    │
+│  │       ├──► WorldGrid                                                │    │
+│  │       │        │                                                    │    │
+│  │       │        └──► WorldPreview                                    │    │
+│  │       │                  │                                          │    │
+│  │       │                  └──► (shows image or WorldPlaceholder)     │    │
+│  │       │                                                             │    │
+│  │       ├──► EL:Table (unchanged - we didn't extend it)               │    │
+│  │       │                                                             │    │
+│  │       └──► EL:EmptyState (unchanged)                                │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-## Key Takeaways
-
-1. **`extend` only rewrites the immediate template** - not templates it calls
-2. **For nested overrides, extend each level** of the template hierarchy
-3. **Work from inside out** - extend inner templates first, then outer ones
-4. **The rewrite map is literal** - template names must match exactly
-5. **Non-rewritten calls remain unchanged** - only specified pairs are rewritten
 
 ## Common Patterns
 
 ### Pattern 1: Override a leaf template
+
 When you only need to change a template that doesn't call other templates:
-```html
-{{# extend "EL:EntityListing" "MyListing"
-           "EL:EmptyStateIcon" "MyEmptyIcon" #}}
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EntityListing ──► EmptyStateIcon (leaf - no further calls)    │
+│                                                                 │
+│  Just one extend needed:                                        │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:EmptyStateIcon" "MyEmptyIcon" #}}               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Pattern 2: Override at multiple levels
+
 When you need to change templates that are called from other templates:
-```html
-{{# extend "EL:Grid" "MyGrid" "EL:GridCardPreview" "MyPreview" #}}
-{{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EntityListing ──► Grid ──► GridCardPreview                     │
+│                                                                 │
+│  Two extends needed (inside-out order):                         │
+│  {{# extend "EL:Grid" "MyGrid"                                  │
+│             "EL:GridCardPreview" "MyPreview" #}}                │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:Grid" "MyGrid" #}}                              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Pattern 3: Multiple independent overrides
-When different parts need different customizations:
-```html
-{{# extend "EL:Grid" "MyGrid" "EL:GridCardPreview" "MyPreview" #}}
-{{# extend "EL:Table" "MyTable" "EL:TableRowPreview" "MyRowPreview" #}}
-{{# extend "EL:EntityListing" "MyListing"
-           "EL:Grid" "MyGrid"
-           "EL:Table" "MyTable" #}}
+
+When different branches need different customizations:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EntityListing ──► Grid ──► GridCardPreview                     │
+│               └──► Table ──► TableRowPreview                    │
+│                                                                 │
+│  Three extends needed:                                          │
+│  {{# extend "EL:Grid" "MyGrid"                                  │
+│             "EL:GridCardPreview" "MyPreview" #}}                │
+│  {{# extend "EL:Table" "MyTable"                                │
+│             "EL:TableRowPreview" "MyRowPreview" #}}             │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:Grid" "MyGrid"                                  │
+│             "EL:Table" "MyTable" #}}                            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Pattern 4: Partial override (keeping some defaults)
-Only override what you need - non-specified blocks use the original templates:
-```html
-{{# namespace "Base" "base.html" #}}
-{{# extend "Base:layout" "MyLayout" "Base:content" "myContent" #}}
 
-{{ define "myContent" }}Custom Content Only{{ end }}
+Only override what you need - non-specified calls remain unchanged:
 
-{{/* header and footer still use Base:header and Base:footer */}}
-{{ template "MyLayout" . }}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Base:layout ──► Base:header                                    │
+│             └──► Base:content                                   │
+│             └──► Base:footer                                    │
+│                                                                 │
+│  Only override content:                                         │
+│  {{# extend "Base:layout" "MyLayout"                            │
+│             "Base:content" "myContent" #}}                      │
+│                                                                 │
+│  Result:                                                        │
+│  MyLayout ──► Base:header  (unchanged - uses default)           │
+│          └──► myContent    (customized)                         │
+│          └──► Base:footer  (unchanged - uses default)           │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Gotchas and Common Mistakes
 
 ### 1. Source template must exist before extend
 
-The `extend` directive looks up the source template at preprocessing time. The source must be loaded via `include` or `namespace` before the `extend` directive:
-
-```html
-{{/* WRONG - Base:layout doesn't exist yet */}}
-{{# extend "Base:layout" "MyLayout" ... #}}
-{{# namespace "Base" "base.html" #}}
-
-{{/* CORRECT - namespace first, then extend */}}
-{{# namespace "Base" "base.html" #}}
-{{# extend "Base:layout" "MyLayout" ... #}}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WRONG ORDER:                                                   │
+│  {{# extend "Base:layout" "MyLayout" ... #}}   ◄── Base:layout  │
+│  {{# namespace "Base" "base.html" #}}              doesn't      │
+│                                                    exist yet!   │
+│                                                                 │
+│  CORRECT ORDER:                                                 │
+│  {{# namespace "Base" "base.html" #}}          ◄── load first   │
+│  {{# extend "Base:layout" "MyLayout" ... #}}   ◄── then extend  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2. Rewrite pairs must be even
-
-The extend directive requires pairs of old/new template names after the destination:
 
 ```html
 {{/* WRONG - odd number of arguments after dest */}}
@@ -346,57 +503,58 @@ The extend directive requires pairs of old/new template names after the destinat
 {{# extend "Base:layout" "MyLayout" "Base:title" "myTitle" #}}
 ```
 
-### 3. Empty destination name is invalid
+### 3. Template names must match exactly
 
-```html
-{{/* WRONG - empty destination */}}
-{{# extend "Base:layout" "" "Base:title" "myTitle" #}}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  If base calls {{ template "Base:header" . }}:                  │
+│                                                                 │
+│  WRONG - name doesn't match:                                    │
+│  {{# extend "Base:layout" "MyLayout" "header" "myHeader" #}}    │
+│                                     ^^^^^^^^                    │
+│                                     should be "Base:header"     │
+│                                                                 │
+│  CORRECT - exact match:                                         │
+│  {{# extend "Base:layout" "MyLayout" "Base:header" "myHeader" #}}
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 4. Template names are exact matches
+### 4. Order matters for chained extensions
 
-Rewrites only happen when the template name matches exactly:
-
-```html
-{{/* If base calls {{ template "Base:header" . }} */}}
-{{# extend "Base:layout" "MyLayout" "header" "myHeader" #}}
-{{/* This WON'T work - "header" != "Base:header" */}}
-
-{{/* CORRECT - use full namespaced name */}}
-{{# extend "Base:layout" "MyLayout" "Base:header" "myHeader" #}}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WRONG ORDER:                                                   │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:Grid" "MyGrid" #}}         ◄── MyGrid doesn't   │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}         exist yet!       │
+│                                                                 │
+│  CORRECT ORDER (inside-out):                                    │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}     ◄── create MyGrid    │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:Grid" "MyGrid" #}}         ◄── then use it      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Order matters for chained extensions
+### 5. Don't forget all call sites
 
-When creating a chain of extended templates, process them in dependency order (inside-out):
-
-```html
-{{/* WRONG ORDER - MyListing references MyGrid before it exists */}}
-{{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
-{{# extend "EL:Grid" "MyGrid" ... #}}
-
-{{/* CORRECT ORDER - define MyGrid first, then use it */}}
-{{# extend "EL:Grid" "MyGrid" ... #}}
-{{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
 ```
-
-### 6. Don't forget about all call sites
-
-If a template is called from multiple places, you need to rewrite all of them:
-
-```html
-{{/* If EntityListing has both Grid and Table calling GridCardPreview... */}}
-
-{{/* This only fixes Grid, Table still calls the original */}}
-{{# extend "EL:Grid" "MyGrid" "EL:GridCardPreview" "MyPreview" #}}
-{{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
-
-{{/* Need to also extend Table */}}
-{{# extend "EL:Grid" "MyGrid" "EL:GridCardPreview" "MyPreview" #}}
-{{# extend "EL:Table" "MyTable" "EL:TableRowPreview" "MyPreview" #}}
-{{# extend "EL:EntityListing" "MyListing"
-           "EL:Grid" "MyGrid"
-           "EL:Table" "MyTable" #}}
+┌─────────────────────────────────────────────────────────────────┐
+│  If EntityListing has BOTH Grid and Table views:                │
+│                                                                 │
+│  EntityListing ──► Grid ──► GridCardPreview                     │
+│               └──► Table ──► TableRowPreview ──► uses same icon │
+│                                                                 │
+│  INCOMPLETE - only fixes Grid view:                             │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}                          │
+│  {{# extend "EL:EntityListing" "MyListing" "EL:Grid" "MyGrid" #}}
+│                                                                 │
+│  COMPLETE - fixes both views:                                   │
+│  {{# extend "EL:Grid" "MyGrid" ... #}}                          │
+│  {{# extend "EL:Table" "MyTable" ... #}}                        │
+│  {{# extend "EL:EntityListing" "MyListing"                      │
+│             "EL:Grid" "MyGrid"                                  │
+│             "EL:Table" "MyTable" #}}                            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Debugging Tips

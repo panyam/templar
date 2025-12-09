@@ -22,157 +22,331 @@ After importing, all templates from that file are available with the prefix:
 
 ## Why Namespaces?
 
-Without namespaces, template names are global. If two files define a template with the same name, the second overwrites the first:
+Without namespaces, template names are global. If two files define a template with the same name, the second overwrites the first.
+
+### The Problem: Name Collision
 
 ```
-buttons.html:     {{ define "button" }} Primary style {{ end }}
-alt-buttons.html: {{ define "button" }} Alt style {{ end }}
-
-<!-- Problem: which "button" do you get? -->
-{{ template "button" . }}
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  buttons.html                        alt-buttons.html                       │
+│  ┌─────────────────────────┐         ┌─────────────────────────┐            │
+│  │ {{ define "button" }}   │         │ {{ define "button" }}   │            │
+│  │   Primary style         │         │   Alt style             │            │
+│  │ {{ end }}               │         │ {{ end }}               │            │
+│  └─────────────────────────┘         └─────────────────────────┘            │
+│              │                                   │                          │
+│              │ include                           │ include                  │
+│              ▼                                   ▼                          │
+│  ┌───────────────────────────────────────────────────────────────┐          │
+│  │                     Global Template Space                      │          │
+│  │  ┌─────────────────────────────────────────────────────────┐  │          │
+│  │  │  "button" = ???  (which one wins?)                      │  │          │
+│  │  └─────────────────────────────────────────────────────────┘  │          │
+│  └───────────────────────────────────────────────────────────────┘          │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-With namespaces, both can coexist:
+### The Solution: Namespaced Imports
 
-```html
-{{# namespace "Main" "buttons.html" #}}
-{{# namespace "Alt" "alt-buttons.html" #}}
-
-{{ template "Main:button" . }}  <!-- Primary style -->
-{{ template "Alt:button" . }}   <!-- Alt style -->
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  buttons.html                        alt-buttons.html                       │
+│  ┌─────────────────────────┐         ┌─────────────────────────┐            │
+│  │ {{ define "button" }}   │         │ {{ define "button" }}   │            │
+│  │   Primary style         │         │   Alt style             │            │
+│  │ {{ end }}               │         │ {{ end }}               │            │
+│  └─────────────────────────┘         └─────────────────────────┘            │
+│              │                                   │                          │
+│              │ namespace "Main"                  │ namespace "Alt"          │
+│              ▼                                   ▼                          │
+│  ┌───────────────────────────────────────────────────────────────┐          │
+│  │                     Global Template Space                      │          │
+│  │  ┌───────────────────────┐    ┌───────────────────────┐       │          │
+│  │  │  "Main:button"        │    │  "Alt:button"         │       │          │
+│  │  │   Primary style       │    │   Alt style           │       │          │
+│  │  └───────────────────────┘    └───────────────────────┘       │          │
+│  └───────────────────────────────────────────────────────────────┘          │
+│                                                                             │
+│  Both coexist! Use {{ template "Main:button" }} or {{ template "Alt:button" }}
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Namespace Resolution Rules
+## How Namespacing Transforms Templates
 
-When templates are imported into a namespace, their internal references are also prefixed:
+When you namespace a file, all template definitions AND their internal references get prefixed:
 
-### Before namespacing (original file)
-```html
-<!-- components/card.html -->
-{{ define "card" }}
-<div class="card">
-    {{ template "cardHeader" . }}
-    {{ template "cardBody" . }}
-</div>
-{{ end }}
+### Before: Original File
 
-{{ define "cardHeader" }}<h3>{{ .Title }}</h3>{{ end }}
-{{ define "cardBody" }}<p>{{ .Content }}</p>{{ end }}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  components/card.html                                           │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ {{ define "card" }}                                       │  │
+│  │ <div class="card">                                        │  │
+│  │     {{ template "cardHeader" . }}  ──────┐                │  │
+│  │     {{ template "cardBody" . }}    ──────┼──┐             │  │
+│  │ </div>                                   │  │             │  │
+│  │ {{ end }}                                │  │             │  │
+│  └──────────────────────────────────────────│──│─────────────┘  │
+│                                             │  │                │
+│  ┌──────────────────────────────────────────│──│─────────────┐  │
+│  │ {{ define "cardHeader" }}  ◄─────────────┘  │             │  │
+│  │ <h3>{{ .Title }}</h3>                       │             │  │
+│  │ {{ end }}                                   │             │  │
+│  └─────────────────────────────────────────────│─────────────┘  │
+│                                                │                │
+│  ┌─────────────────────────────────────────────│─────────────┐  │
+│  │ {{ define "cardBody" }}  ◄──────────────────┘             │  │
+│  │ <p>{{ .Content }}</p>                                     │  │
+│  │ {{ end }}                                                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### After namespacing
-```html
+### After: Namespaced with "UI"
+
+```
 {{# namespace "UI" "components/card.html" #}}
 
-<!-- Templates become: -->
-<!-- UI:card        - calls UI:cardHeader and UI:cardBody -->
-<!-- UI:cardHeader  -->
-<!-- UI:cardBody    -->
+┌─────────────────────────────────────────────────────────────────┐
+│  Result in Template Space                                       │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ {{ define "UI:card" }}         ◄── name prefixed          │  │
+│  │ <div class="card">                                        │  │
+│  │     {{ template "UI:cardHeader" . }}  ◄── call prefixed   │  │
+│  │     {{ template "UI:cardBody" . }}    ◄── call prefixed   │  │
+│  │ </div>                                                    │  │
+│  │ {{ end }}                                                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ {{ define "UI:cardHeader" }}   ◄── name prefixed          │  │
+│  │ <h3>{{ .Title }}</h3>                                     │  │
+│  │ {{ end }}                                                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ {{ define "UI:cardBody" }}     ◄── name prefixed          │  │
+│  │ <p>{{ .Content }}</p>                                     │  │
+│  │ {{ end }}                                                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 
-{{ template "UI:card" . }}
+Usage: {{ template "UI:card" .CardData }}
 ```
 
 ## Reference Syntax
 
 Within namespaced templates, there are three ways to reference other templates:
 
-| Syntax | Meaning | Example |
-|--------|---------|---------|
-| `name` | Same namespace | `{{ template "helper" }}` → `NS:helper` |
-| `Other:name` | Explicit namespace | `{{ template "UI:button" }}` → `UI:button` |
-| `::name` | Global (no namespace) | `{{ template "::global" }}` → `global` |
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Reference Syntax                                                           │
+│                                                                             │
+│  ┌─────────────────┬─────────────────────────┬───────────────────────────┐  │
+│  │ Syntax          │ Meaning                 │ Example                   │  │
+│  ├─────────────────┼─────────────────────────┼───────────────────────────┤  │
+│  │ "name"          │ Same namespace          │ "helper" → "NS:helper"    │  │
+│  │ "Other:name"    │ Explicit namespace      │ "UI:button" → "UI:button" │  │
+│  │ "::name"        │ Global (no namespace)   │ "::global" → "global"     │  │
+│  └─────────────────┴─────────────────────────┴───────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-### Example
+### Visual Example
 
-```html
-{{# namespace "Page" "page.html" #}}
-{{# namespace "UI" "components.html" #}}
-
-<!-- In page.html: -->
-{{ define "layout" }}
-<div>
-    {{ template "header" . }}      <!-- becomes Page:header -->
-    {{ template "UI:navbar" . }}   <!-- stays UI:navbar -->
-    {{ template "::baseMeta" . }}  <!-- stays baseMeta (global) -->
-</div>
-{{ end }}
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  page.html (loaded with namespace "Page")                                   │
+│                                                                             │
+│  {{ define "layout" }}                                                      │
+│  <div>                                                                      │
+│      {{ template "header" . }}       ─────► becomes "Page:header"           │
+│      {{ template "UI:navbar" . }}    ─────► stays "UI:navbar" (explicit)    │
+│      {{ template "::baseMeta" . }}   ─────► becomes "baseMeta" (global)     │
+│  </div>                                                                     │
+│  {{ end }}                                                                  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Template Resolution:                                                │    │
+│  │                                                                     │    │
+│  │   "header"      + namespace "Page"  =  "Page:header"                │    │
+│  │   "UI:navbar"   (has colon)         =  "UI:navbar"    (unchanged)   │    │
+│  │   "::baseMeta"  (double colon)      =  "baseMeta"     (global)      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tree-Shaking with Namespaces
 
 You can selectively import only specific templates (and their dependencies):
 
-```html
-{{# namespace "UI" "widgets.html" "button" "icon" #}}
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  widgets.html                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ button ──────► icon                                                 │    │
+│  │ card ────────► cardHeader ──► icon                                  │    │
+│  │          └───► cardBody                                             │    │
+│  │ modal ───────► button                                               │    │
+│  │ tooltip                                                             │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  {{# namespace "UI" "widgets.html" "button" #}}                             │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ INCLUDED (button + dependencies):          EXCLUDED:                │    │
+│  │ ┌──────────────────────────────┐          ┌──────────────────────┐  │    │
+│  │ │ ✓ UI:button                  │          │ ✗ card               │  │    │
+│  │ │ ✓ UI:icon (dependency)       │          │ ✗ cardHeader         │  │    │
+│  │ └──────────────────────────────┘          │ ✗ cardBody           │  │    │
+│  │                                           │ ✗ modal              │  │    │
+│  │                                           │ ✗ tooltip            │  │    │
+│  │                                           └──────────────────────┘  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-This imports only:
-- `UI:button`
-- `UI:icon`
-- Any templates that `button` and `icon` depend on
+### Without vs With Tree-Shaking
 
-Templates not referenced are excluded, reducing the final template size.
-
-### Without tree-shaking
-```html
+```
+WITHOUT tree-shaking:
 {{# namespace "UI" "widgets.html" #}}
-<!-- Imports ALL templates: button, icon, card, modal, tooltip, ... -->
+┌───────────────────────────────────┐
+│ UI:button, UI:icon, UI:card,      │
+│ UI:cardHeader, UI:cardBody,       │
+│ UI:modal, UI:tooltip              │
+│ (ALL templates imported)          │
+└───────────────────────────────────┘
+
+WITH tree-shaking:
+{{# namespace "UI" "widgets.html" "button" #}}
+┌───────────────────────────────────┐
+│ UI:button, UI:icon                │
+│ (only button + its dependencies)  │
+└───────────────────────────────────┘
 ```
 
-### With tree-shaking
-```html
-{{# namespace "UI" "widgets.html" "button" #}}
-<!-- Imports only: button (and any templates button calls) -->
+## The Diamond Problem
+
+When multiple libraries include the same shared template with different namespaces, each gets its own isolated copy:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              page.html                                      │
+│                      {{# include "libA.html" #}}                            │
+│                      {{# include "libB.html" #}}                            │
+│                           /            \                                    │
+│                          /              \                                   │
+│                         ▼                ▼                                  │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
+│  │         libA.html           │  │         libB.html           │           │
+│  │ {{# namespace "A"           │  │ {{# namespace "B"           │           │
+│  │    "shared.html" #}}        │  │    "shared.html" #}}        │           │
+│  │                             │  │                             │           │
+│  │ {{ define "libA" }}         │  │ {{ define "libB" }}         │           │
+│  │   Uses {{ template          │  │   Uses {{ template          │           │
+│  │         "A:widget" }}       │  │         "B:widget" }}       │           │
+│  │ {{ end }}                   │  │ {{ end }}                   │           │
+│  └──────────────┬──────────────┘  └──────────────┬──────────────┘           │
+│                 │                                │                          │
+│                 │ namespace "A"                  │ namespace "B"            │
+│                 ▼                                ▼                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                          shared.html                                │    │
+│  │                   {{ define "widget" }}                             │    │
+│  │                       [WIDGET]                                      │    │
+│  │                   {{ end }}                                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ RESULT: Both coexist independently!                                 │    │
+│  │                                                                     │    │
+│  │   "A:widget" ──► [WIDGET]  (for libA)                               │    │
+│  │   "B:widget" ──► [WIDGET]  (for libB)                               │    │
+│  │   "libA"     ──► Uses A:widget                                      │    │
+│  │   "libB"     ──► Uses B:widget                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Output: "LibA uses [WIDGET] AND LibB uses [WIDGET]"
 ```
 
 ## Combining Namespace and Extend
 
 Namespaces work together with the `extend` directive. First namespace to import, then extend to customize:
 
-```html
-{{# namespace "Base" "layouts/base.html" #}}
-
-{{# extend "Base:layout" "MyLayout"
-           "Base:header" "myHeader"
-           "Base:footer" "myFooter" #}}
-
-{{ define "myHeader" }}
-<header>My Custom Header</header>
-{{ end }}
-
-{{ define "myFooter" }}
-<footer>My Custom Footer</footer>
-{{ end }}
-
-{{ template "MyLayout" . }}
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: Namespace loads the base templates                                 │
+│                                                                             │
+│  {{# namespace "Base" "layouts/base.html" #}}                               │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Base:layout ──► Base:header                                         │    │
+│  │            └──► Base:content                                        │    │
+│  │            └──► Base:footer                                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  STEP 2: Extend creates customized version                                  │
+│                                                                             │
+│  {{# extend "Base:layout" "MyLayout"                                        │
+│             "Base:header" "myHeader"                                        │
+│             "Base:footer" "myFooter" #}}                                    │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ MyLayout ────► myHeader        (rewired from Base:header)           │    │
+│  │          └──► Base:content     (unchanged - not in rewrite list)    │    │
+│  │          └──► myFooter         (rewired from Base:footer)           │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  STEP 3: Define your custom templates                                       │
+│                                                                             │
+│  {{ define "myHeader" }}<header>Custom Header</header>{{ end }}             │
+│  {{ define "myFooter" }}<footer>Custom Footer</footer>{{ end }}             │
+│                                                                             │
+│  {{ template "MyLayout" . }}                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Practical Example: Component Library
 
-```html
-<!-- app/pages/dashboard.html -->
-
-{{# namespace "UI" "shared/components.html" #}}
-{{# namespace "Charts" "shared/charts.html" #}}
-{{# namespace "Layout" "shared/layouts.html" #}}
-
-{{ define "DashboardPage" }}
-{{ template "Layout:twoColumn" . }}
-{{ end }}
-
-{{ define "Layout:sidebar" }}
-<nav>
-    {{ template "UI:navMenu" .MenuItems }}
-</nav>
-{{ end }}
-
-{{ define "Layout:main" }}
-<div class="dashboard">
-    {{ template "Charts:lineChart" .SalesData }}
-    {{ template "Charts:barChart" .InventoryData }}
-    {{ template "UI:dataTable" .RecentOrders }}
-</div>
-{{ end }}
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  app/pages/dashboard.html                                                   │
+│                                                                             │
+│  {{# namespace "UI" "shared/components.html" #}}                            │
+│  {{# namespace "Charts" "shared/charts.html" #}}                            │
+│  {{# namespace "Layout" "shared/layouts.html" #}}                           │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        Template Space                               │    │
+│  │                                                                     │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │    │
+│  │  │ UI:          │  │ Charts:      │  │ Layout:      │               │    │
+│  │  │  navMenu     │  │  lineChart   │  │  twoColumn   │               │    │
+│  │  │  dataTable   │  │  barChart    │  │  sidebar     │               │    │
+│  │  │  button      │  │  pieChart    │  │  main        │               │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  {{ define "DashboardPage" }}                                               │
+│      {{ template "Layout:twoColumn" . }}                                    │
+│  {{ end }}                                                                  │
+│                                                                             │
+│  {{ define "Layout:sidebar" }}                                              │
+│      <nav>{{ template "UI:navMenu" .MenuItems }}</nav>                      │
+│  {{ end }}                                                                  │
+│                                                                             │
+│  {{ define "Layout:main" }}                                                 │
+│      <div class="dashboard">                                                │
+│          {{ template "Charts:lineChart" .SalesData }}                       │
+│          {{ template "Charts:barChart" .InventoryData }}                    │
+│          {{ template "UI:dataTable" .RecentOrders }}                        │
+│      </div>                                                                 │
+│  {{ end }}                                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Points
@@ -182,40 +356,6 @@ Namespaces work together with the `extend` directive. First namespace to import,
 3. **Cross-namespace calls use explicit prefix** - Use `Other:name` to call templates from different namespaces
 4. **Global references use `::`** - Use `::name` to reference templates without any namespace
 5. **Tree-shaking is optional** - List specific template names after the path to import only those
-
-## The Diamond Problem
-
-When multiple libraries include the same shared template with different namespaces, each gets its own isolated copy:
-
-```
-        Page
-       /    \
-     LibA   LibB
-       \    /
-       Shared
-```
-
-```html
-<!-- shared.html -->
-{{ define "widget" }}[WIDGET]{{ end }}
-
-<!-- libA.html -->
-{{# namespace "A" "shared.html" #}}
-{{ define "libA" }}LibA uses {{ template "A:widget" . }}{{ end }}
-
-<!-- libB.html -->
-{{# namespace "B" "shared.html" #}}
-{{ define "libB" }}LibB uses {{ template "B:widget" . }}{{ end }}
-
-<!-- page.html -->
-{{# include "libA.html" #}}
-{{# include "libB.html" #}}
-{{ define "page" }}
-{{ template "libA" . }} AND {{ template "libB" . }}
-{{ end }}
-```
-
-Result: Both `A:widget` and `B:widget` exist independently. Each library gets its own namespaced version of the shared template.
 
 ## Gotchas and Common Mistakes
 
@@ -231,88 +371,51 @@ Result: Both `A:widget` and `B:widget` exist independently. Each library gets it
 
 ### 2. Missing namespace prefix when calling
 
-After namespacing, you must use the prefix to call templates:
-
-```html
-{{# namespace "UI" "components.html" #}}
-
-{{/* WRONG - "button" doesn't exist, only "UI:button" */}}
-{{ template "button" . }}
-
-{{/* CORRECT - use the namespace prefix */}}
-{{ template "UI:button" . }}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  {{# namespace "UI" "components.html" #}}                       │
+│                                                                 │
+│  {{ template "button" . }}      ✗ WRONG - "button" not found   │
+│  {{ template "UI:button" . }}   ✓ CORRECT - use prefix         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. Internal references within namespaced templates
+### 3. Referencing global templates from namespaced code
 
-Templates inside a namespaced file that call each other are automatically prefixed:
-
-```html
-<!-- components.html -->
-{{ define "card" }}
-<div>{{ template "cardBody" . }}</div>  <!-- becomes UI:cardBody -->
-{{ end }}
-{{ define "cardBody" }}<p>Content</p>{{ end }}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  helpers.html (included globally):                              │
+│  {{ define "formatDate" }}2024-01-01{{ end }}                   │
+│                                                                 │
+│  components.html (namespaced as "UI"):                          │
+│  {{ define "card" }}                                            │
+│      Date: {{ template "::formatDate" . }}   ◄── use :: prefix  │
+│  {{ end }}                                                      │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Without ::  →  looks for "UI:formatDate"  →  NOT FOUND    │  │
+│  │ With ::     →  looks for "formatDate"     →  FOUND        │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-When loaded with `{{# namespace "UI" "components.html" #}}`:
-- `card` becomes `UI:card`
-- `cardBody` becomes `UI:cardBody`
-- The call to `cardBody` inside `card` becomes `UI:cardBody`
+### 4. Order matters: namespace before extend
 
-### 4. Referencing global templates from namespaced code
-
-Use `::` prefix to escape the namespace and reference global templates:
-
-```html
-<!-- helpers.html (loaded globally) -->
-{{ define "formatDate" }}2024-01-01{{ end }}
-
-<!-- components.html -->
-{{ define "card" }}
-<div>Date: {{ template "::formatDate" . }}</div>
-{{ end }}
 ```
-
-```html
-{{# include "helpers.html" #}}
-{{# namespace "UI" "components.html" #}}
-<!-- UI:card correctly calls global formatDate, not UI:formatDate -->
-```
-
-### 5. Tree-shaking includes dependencies
-
-When you tree-shake, transitive dependencies are automatically included:
-
-```html
-<!-- components.html -->
-{{ define "form" }}{{ template "input" . }}{{ template "button" . }}{{ end }}
-{{ define "input" }}<input/>{{ end }}
-{{ define "button" }}<button/>{{ end }}
-{{ define "unused" }}not needed{{ end }}
-
-{{/* Only request "form", but input and button come along */}}
-{{# namespace "UI" "components.html" "form" #}}
-<!-- Available: UI:form, UI:input, UI:button -->
-<!-- NOT available: UI:unused -->
-```
-
-### 6. Namespace before extend
-
-When combining with `extend`, always namespace first:
-
-```html
-{{/* CORRECT ORDER */}}
-{{# namespace "Base" "layouts.html" #}}
-{{# extend "Base:layout" "MyLayout" ... #}}
-
-{{/* WRONG - can't extend what doesn't exist yet */}}
-{{# extend "Base:layout" "MyLayout" ... #}}
-{{# namespace "Base" "layouts.html" #}}
+┌─────────────────────────────────────────────────────────────────┐
+│  WRONG ORDER:                                                   │
+│  {{# extend "Base:layout" "MyLayout" ... #}}   ◄── Base:layout  │
+│  {{# namespace "Base" "layouts.html" #}}           doesn't      │
+│                                                    exist yet!   │
+│                                                                 │
+│  CORRECT ORDER:                                                 │
+│  {{# namespace "Base" "layouts.html" #}}       ◄── load first   │
+│  {{# extend "Base:layout" "MyLayout" ... #}}   ◄── then extend  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Debugging Tips
 
-1. **List available templates**: After loading, check what templates exist with `templar debug --defines`
+1. **List available templates**: Use `templar debug --defines` to see all defined templates
 2. **Check references**: Use `templar debug --refs` to see cross-template dependencies
 3. **Trace loading**: Use `templar debug --trace` to see how paths are resolved
