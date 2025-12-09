@@ -296,100 +296,31 @@ group.RenderTextTemplate(w, dynamicTemplate, "", map[string]any{"Name": "World"}
 
 ## Command Line Interface
 
-Templar provides a unified CLI tool for serving templates and debugging template dependencies.
-
-### Installation
+Templar provides a CLI tool for serving templates, debugging dependencies, and managing external sources:
 
 ```bash
+# Install
 go install github.com/panyam/templar/cmd/templar@latest
+
+# Start development server
+templar serve -t ./templates -s /static:./public
+
+# Debug template dependencies
+templar debug -p templates homepage.html
+
+# Fetch external template sources
+templar get
 ```
 
-### Commands
+Key commands:
+- **`templar serve`** - Start HTTP server to serve and test templates
+- **`templar debug`** - Analyze dependencies, detect cycles, visualize with GraphViz
+- **`templar get`** - Fetch external template sources for vendoring
+- **`templar version`** - Print version information
 
-#### `templar serve` - HTTP Template Server
+Configuration via `.templar.yaml` or environment variables (`TEMPLAR_` prefix).
 
-Start an HTTP server to serve and test templates:
-
-```bash
-# Basic usage
-templar serve -t ./templates
-
-# Multiple template directories
-templar serve -t ./templates -t ../shared/templates
-
-# With static file serving
-templar serve -t ./templates -s /static:./public -s /css:./styles
-
-# Custom port
-templar serve --addr :8080 -t ./templates
-```
-
-#### `templar debug` - Template Analyzer
-
-Analyze template dependencies, detect cycles, and debug issues:
-
-```bash
-# Basic analysis
-templar debug -p templates homepage.tmpl
-
-# Show all template definitions and references
-templar debug --defines --refs -p templates homepage.tmpl
-
-# Output GraphViz DOT format for visualization
-templar debug --dot -p templates homepage.tmpl > deps.dot
-dot -Tpng deps.dot -o deps.png
-
-# Flatten/preprocess a template (expand all includes)
-templar debug --flatten -p templates homepage.tmpl
-
-# Trace path resolution for debugging include issues
-templar debug --trace -p templates homepage.tmpl
-```
-
-#### `templar version` - Version Information
-
-```bash
-templar version
-```
-
-### Configuration File
-
-Templar supports YAML configuration files. Config locations (in order of precedence):
-1. `--config` flag
-2. `.templar.yaml` in current directory
-3. `~/.config/templar/config.yaml`
-
-Example `.templar.yaml`:
-
-```yaml
-# Serve command defaults
-serve:
-  addr: ":8080"
-  templates:
-    - ./templates
-    - ../shared/templates
-  static:
-    - /static:./public
-    - /css:./styles
-
-# Debug command defaults
-debug:
-  path: "templates,../shared"
-  verbose: false
-  cycles: true
-  defines: false
-  refs: false
-```
-
-Environment variables are also supported with the `TEMPLAR_` prefix (e.g., `TEMPLAR_SERVE_ADDR`).
-
-### Building with Version Info
-
-To embed version information at build time:
-
-```bash
-go build -ldflags "-X main.Version=1.0.0 -X main.GitCommit=$(git rev-parse HEAD) -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" ./cmd/templar
-```
+See [cli.md](docs/cli.md) for complete command reference, flags, configuration options, and examples.
 
 ## Comparison with Other Solutions
 
@@ -426,6 +357,7 @@ pre-processing as well as for final rendering).
 - [Namespacing](docs/namespace.md) - Avoiding name collisions with namespace imports
 - [Template Extension](docs/extend.md) - Inheriting and overriding templates
 - [Vendoring](docs/vendoring.md) - Loading templates from external sources (GitHub, etc.)
+- [CLI Reference](docs/cli.md) - Command line tool usage, flags, and configuration
 
 ## Contributing
 
