@@ -38,7 +38,7 @@ Without namespaces, template names are global. If two files define a template wi
 │              │ include                           │ include                  │
 │              ▼                                   ▼                          │
 │  ┌───────────────────────────────────────────────────────────────┐          │
-│  │                     Global Template Space                      │          │
+│  │                     Global Template Space                     │          │
 │  │  ┌─────────────────────────────────────────────────────────┐  │          │
 │  │  │  "button" = ???  (which one wins?)                      │  │          │
 │  │  └─────────────────────────────────────────────────────────┘  │          │
@@ -49,26 +49,26 @@ Without namespaces, template names are global. If two files define a template wi
 ### The Solution: Namespaced Imports
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  buttons.html                        alt-buttons.html                       │
-│  ┌─────────────────────────┐         ┌─────────────────────────┐            │
-│  │ {{ define "button" }}   │         │ {{ define "button" }}   │            │
-│  │   Primary style         │         │   Alt style             │            │
-│  │ {{ end }}               │         │ {{ end }}               │            │
-│  └─────────────────────────┘         └─────────────────────────┘            │
-│              │                                   │                          │
-│              │ namespace "Main"                  │ namespace "Alt"          │
-│              ▼                                   ▼                          │
-│  ┌───────────────────────────────────────────────────────────────┐          │
-│  │                     Global Template Space                      │          │
-│  │  ┌───────────────────────┐    ┌───────────────────────┐       │          │
-│  │  │  "Main:button"        │    │  "Alt:button"         │       │          │
-│  │  │   Primary style       │    │   Alt style           │       │          │
-│  │  └───────────────────────┘    └───────────────────────┘       │          │
-│  └───────────────────────────────────────────────────────────────┘          │
-│                                                                             │
-│  Both coexist! Use {{ template "Main:button" }} or {{ template "Alt:button" }}
-└─────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│  buttons.html                        alt-buttons.html                          │
+│  ┌─────────────────────────┐         ┌─────────────────────────┐               │
+│  │ {{ define "button" }}   │         │ {{ define "button" }}   │               │
+│  │   Primary style         │         │   Alt style             │               │
+│  │ {{ end }}               │         │ {{ end }}               │               │
+│  └─────────────────────────┘         └─────────────────────────┘               │
+│              │                                   │                             │
+│              │ namespace "Main"                  │ namespace "Alt"             │
+│              ▼                                   ▼                             │
+│  ┌───────────────────────────────────────────────────────────────┐             │
+│  │                     Global Template Space                     │             │
+│  │  ┌───────────────────────┐    ┌───────────────────────┐       │             │
+│  │  │  "Main:button"        │    │  "Alt:button"         │       │             │
+│  │  │   Primary style       │    │   Alt style           │       │             │
+│  │  └───────────────────────┘    └───────────────────────┘       │             │
+│  └───────────────────────────────────────────────────────────────┘             │
+│                                                                                │
+│  Both coexist! Use {{ template "Main:button" }} or {{ template "Alt:button" }} │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## How Namespacing Transforms Templates
