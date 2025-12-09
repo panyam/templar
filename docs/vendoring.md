@@ -365,34 +365,39 @@ search_paths:
   - ./templar_modules
 ```
 
-### templates/pages/WorldListingPage.html
+### templates/pages/product-list.html
 
 ```html
-{{# include "BasePage.html" #}}
-{{# namespace "EL" "@goapplib/components/EntityListing.html" #}}
+{{# include "base.html" #}}
+{{# namespace "UI" "@uikit/components/card.html" #}}
 
-{{/* Custom world grid card */}}
-{{ define "WorldGridCardPlaceholder" }}
-<svg class="w-16 h-16 text-green-200">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-</svg>
+{{/* Custom product card preview - shows product image */}}
+{{ define "productPreview" }}
+{{ if .ImageUrl }}
+<img src="{{ .ImageUrl }}" alt="{{ .Name }}" class="w-full h-32 object-cover">
+{{ else }}
+<div class="w-full h-32 bg-gray-200 flex items-center justify-center">
+    <span class="text-gray-400">No image</span>
+</div>
+{{ end }}
 {{ end }}
 
-{{/* Extend Grid to use world-specific templates */}}
-{{# extend "EL:Grid" "WorldGrid"
-           "EL:GridCardPlaceholder" "WorldGridCardPlaceholder" #}}
+{{/* Extend Card to use product-specific preview */}}
+{{# extend "UI:Card" "ProductCard"
+           "UI:CardPreview" "productPreview" #}}
 
-{{# extend "EL:EntityListing" "WorldEntityListing"
-           "EL:Grid" "WorldGrid" #}}
+{{# extend "UI:CardGrid" "ProductGrid"
+           "UI:Card" "ProductCard" #}}
 
-{{ define "BodySection" }}
+{{ define "content" }}
 <main class="max-w-7xl mx-auto px-4 py-8">
-    {{ template "WorldEntityListing" .ListingData }}
+    <h1>Products</h1>
+    {{ template "ProductGrid" .Products }}
 </main>
 {{ end }}
 
-{{ define "WorldListingPage" }}
-{{ template "BasePage" . }}
+{{ define "ProductListPage" }}
+{{ template "base" . }}
 {{ end }}
 ```
 
@@ -406,20 +411,27 @@ import (
 )
 
 func main() {
+    // Create SourceLoader with configuration
+    config := &templar.VendorConfig{
+        Sources: map[string]templar.SourceConfig{
+            "uikit": {
+                URL:  "github.com/example/uikit",
+                Path: "templates",
+                Ref:  "v1.0.0",
+            },
+        },
+        VendorDir:   "./templar_modules",
+        SearchPaths: []string{"./templates"},
+    }
+
     group := templar.NewTemplateGroup()
+    group.Loader = templar.NewSourceLoader(config)
 
-    // Configure loader with search paths from templar.yaml
-    // (or programmatically)
-    group.Loader = templar.NewLoaderList(
-        templar.NewFileSystemLoader("templates/"),
-        templar.NewFileSystemLoader("templar_modules/"),
-    )
-
-    // Load template - @goapplib references resolve automatically
-    tmpl := group.MustLoad("pages/WorldListingPage.html", "")
+    // Load template - @uikit references resolve automatically
+    tmpl := group.MustLoad("pages/product-list.html", "")
 
     // Render
-    group.RenderHtmlTemplate(w, tmpl[0], "WorldListingPage", data, nil)
+    group.RenderHtmlTemplate(w, tmpl[0], "ProductListPage", data, nil)
 }
 ```
 
