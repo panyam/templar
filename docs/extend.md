@@ -323,112 +323,207 @@ To override templates at any level, you need to extend each level in the chain:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Complete Real-World Example
+## Complete Example: Product Catalog with Themed Cards
 
-### Base Component (goapplib/components/EntityListing.html)
+This example shows a reusable product card component that different pages can customize with their own styling.
+
+### File Structure
+
+```
+templates/
+├── shared/
+│   └── card.html        # Base card component
+├── pages/
+│   ├── products.html    # Product listing (uses photos)
+│   └── services.html    # Service listing (uses icons)
+```
+
+### Base Component (shared/card.html)
 
 ```html
-{{ define "GridCardPlaceholder" }}
-<svg class="w-16 h-16 text-blue-200"><!-- default icon --></svg>
+{{/* Default placeholder - a generic box icon */}}
+{{ define "cardIcon" }}
+<svg class="icon" viewBox="0 0 24 24">
+  <rect x="3" y="3" width="18" height="18" rx="2"/>
+</svg>
 {{ end }}
 
-{{ define "GridCardPreview" }}
-<div class="preview">{{ template "GridCardPlaceholder" $ }}</div>
+{{/* Card preview - shows icon by default */}}
+{{ define "cardPreview" }}
+<div class="card-preview">
+  {{ template "cardIcon" . }}
+</div>
 {{ end }}
 
-{{ define "Grid" }}
+{{/* Individual card */}}
+{{ define "card" }}
+<div class="card">
+  {{ template "cardPreview" . }}
+  <h3>{{ .Title }}</h3>
+  <p>{{ .Description }}</p>
+</div>
+{{ end }}
+
+{{/* Card grid - renders multiple cards */}}
+{{ define "cardGrid" }}
 <div class="grid">
-    {{ range .Items }}
-    <div class="card">
-        {{ template "GridCardPreview" . }}
-        <h3>{{ .Name }}</h3>
-    </div>
-    {{ end }}
-</div>
-{{ end }}
-
-{{ define "EntityListing" }}
-<div>
-    {{ template "PageHeader" . }}
-    {{ if .Items }}{{ template "Grid" . }}{{ end }}
+  {{ range .Items }}
+    {{ template "card" . }}
+  {{ end }}
 </div>
 {{ end }}
 ```
 
-### App-Specific Template (WorldListingPage.html)
+### Product Page (pages/products.html) - Uses Photos
 
 ```html
-{{# namespace "EL" "goapplib/components/EntityListing.html" #}}
+{{# namespace "Base" "shared/card.html" #}}
 
-{{/* Define world-specific templates */}}
-{{ define "WorldPlaceholder" }}
-<svg class="w-16 h-16 text-green-200"><!-- globe icon --></svg>
+{{/* Product preview - shows actual product photo */}}
+{{ define "productPreview" }}
+<div class="card-preview">
+  {{ if .ImageUrl }}
+    <img src="{{ .ImageUrl }}" alt="{{ .Title }}">
+  {{ else }}
+    {{ template "productIcon" . }}
+  {{ end }}
+</div>
 {{ end }}
 
-{{ define "WorldPreview" }}
-{{ if .PreviewUrl }}
-    <img src="{{ .PreviewUrl }}" class="w-full h-full object-cover">
-{{ else }}
-    <div class="preview">{{ template "WorldPlaceholder" $ }}</div>
+{{/* Fallback icon for products without photos */}}
+{{ define "productIcon" }}
+<svg class="icon product-icon" viewBox="0 0 24 24">
+  <path d="M20 7l-8-4-8 4m16 0v10l-8 4m8-14l-8 4m0 6v-6m0 6l-8-4V7"/>
+</svg>
 {{ end }}
-{{ end }}
 
-{{/* Chain of extensions - from inside out */}}
-{{# extend "EL:Grid" "WorldGrid"
-           "EL:GridCardPreview" "WorldPreview" #}}
+{{/* Extend card to use product preview */}}
+{{# extend "Base:card" "productCard"
+           "Base:cardPreview" "productPreview" #}}
 
-{{# extend "EL:EntityListing" "WorldListing"
-           "EL:Grid" "WorldGrid" #}}
+{{/* Extend grid to use product cards */}}
+{{# extend "Base:cardGrid" "productGrid"
+           "Base:card" "productCard" #}}
 
-{{/* Use the fully customized listing */}}
-{{ define "BodySection" }}
-<main>{{ template "WorldListing" .ListingData }}</main>
+{{/* Page template */}}
+{{ define "productPage" }}
+<main>
+  <h1>Our Products</h1>
+  {{ template "productGrid" . }}
+</main>
 {{ end }}
 ```
 
-### Visual representation of the extension:
+### Service Page (pages/services.html) - Uses Custom Icons
+
+```html
+{{# namespace "Base" "shared/card.html" #}}
+
+{{/* Service preview - uses service-specific icon */}}
+{{ define "servicePreview" }}
+<div class="card-preview service-style">
+  {{ template "serviceIcon" . }}
+</div>
+{{ end }}
+
+{{/* Custom icon for services */}}
+{{ define "serviceIcon" }}
+<svg class="icon service-icon" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="10"/>
+  <path d="M12 6v6l4 2"/>
+</svg>
+{{ end }}
+
+{{/* Extend card to use service preview */}}
+{{# extend "Base:card" "serviceCard"
+           "Base:cardPreview" "servicePreview" #}}
+
+{{/* Extend grid to use service cards */}}
+{{# extend "Base:cardGrid" "serviceGrid"
+           "Base:card" "serviceCard" #}}
+
+{{/* Page template */}}
+{{ define "servicePage" }}
+<main>
+  <h1>Our Services</h1>
+  {{ template "serviceGrid" . }}
+</main>
+{{ end }}
+```
+
+### How the Extensions Work
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Extension Chain for WorldListingPage                                       │
+│  products.html extension chain:                                             │
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 1: extend "EL:Grid" → "WorldGrid"                             │    │
-│  │                                                                     │    │
-│  │  EL:Grid                                WorldGrid                   │    │
-│  │  ┌──────────────────────────┐          ┌──────────────────────────┐ │    │
-│  │  │ calls EL:GridCardPreview │   ──►    │ calls WorldPreview       │ │    │
-│  │  │ calls EL:GridCardMeta    │          │ calls EL:GridCardMeta    │ │    │
-│  │  └──────────────────────────┘          └──────────────────────────┘ │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│  Step 1: extend "Base:card" → "productCard"                                 │
+│  ┌────────────────────────────┐       ┌────────────────────────────┐        │
+│  │ Base:card                  │       │ productCard                │        │
+│  │  calls Base:cardPreview    │  ──►  │  calls productPreview      │        │
+│  └────────────────────────────┘       └────────────────────────────┘        │
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 2: extend "EL:EntityListing" → "WorldListing"                 │    │
-│  │                                                                     │    │
-│  │  EL:EntityListing                       WorldListing                │    │
-│  │  ┌──────────────────────────┐          ┌──────────────────────────┐ │    │
-│  │  │ calls EL:Grid            │   ──►    │ calls WorldGrid          │ │    │
-│  │  │ calls EL:Table           │          │ calls EL:Table           │ │    │
-│  │  │ calls EL:EmptyState      │          │ calls EL:EmptyState      │ │    │
-│  │  └──────────────────────────┘          └──────────────────────────┘ │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│  Step 2: extend "Base:cardGrid" → "productGrid"                             │
+│  ┌────────────────────────────┐       ┌────────────────────────────┐        │
+│  │ Base:cardGrid              │       │ productGrid                │        │
+│  │  calls Base:card           │  ──►  │  calls productCard         │        │
+│  └────────────────────────────┘       └────────────────────────────┘        │
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Final Result:                                                      │    │
-│  │                                                                     │    │
-│  │  WorldListing                                                       │    │
-│  │       │                                                             │    │
-│  │       ├──► WorldGrid                                                │    │
-│  │       │        │                                                    │    │
-│  │       │        └──► WorldPreview                                    │    │
-│  │       │                  │                                          │    │
-│  │       │                  └──► (shows image or WorldPlaceholder)     │    │
-│  │       │                                                             │    │
-│  │       ├──► EL:Table (unchanged - we didn't extend it)               │    │
-│  │       │                                                             │    │
-│  │       └──► EL:EmptyState (unchanged)                                │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│  Result: productGrid → productCard → productPreview → (photo or icon)       │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  services.html extension chain:                                             │
+│                                                                             │
+│  Step 1: extend "Base:card" → "serviceCard"                                 │
+│  ┌────────────────────────────┐       ┌────────────────────────────┐        │
+│  │ Base:card                  │       │ serviceCard                │        │
+│  │  calls Base:cardPreview    │  ──►  │  calls servicePreview      │        │
+│  └────────────────────────────┘       └────────────────────────────┘        │
+│                                                                             │
+│  Step 2: extend "Base:cardGrid" → "serviceGrid"                             │
+│  ┌────────────────────────────┐       ┌────────────────────────────┐        │
+│  │ Base:cardGrid              │       │ serviceGrid                │        │
+│  │  calls Base:card           │  ──►  │  calls serviceCard         │        │
+│  └────────────────────────────┘       └────────────────────────────┘        │
+│                                                                             │
+│  Result: serviceGrid → serviceCard → servicePreview → serviceIcon           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Sample Output
+
+With data `{Items: [{Title: "Widget", ImageUrl: "/img/widget.jpg"}, {Title: "Gadget"}]}`:
+
+**Product page** renders:
+```html
+<div class="grid">
+  <div class="card">
+    <div class="card-preview">
+      <img src="/img/widget.jpg" alt="Widget">  <!-- has image -->
+    </div>
+    <h3>Widget</h3>
+  </div>
+  <div class="card">
+    <div class="card-preview">
+      <svg class="icon product-icon">...</svg>  <!-- fallback icon -->
+    </div>
+    <h3>Gadget</h3>
+  </div>
+</div>
+```
+
+**Service page** renders:
+```html
+<div class="grid">
+  <div class="card">
+    <div class="card-preview service-style">
+      <svg class="icon service-icon">...</svg>  <!-- always uses icon -->
+    </div>
+    <h3>Widget</h3>
+  </div>
+  ...
+</div>
 ```
 
 ## Common Patterns
