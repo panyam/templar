@@ -302,20 +302,28 @@ Templar provides a CLI tool for serving templates, debugging dependencies, and m
 # Install
 go install github.com/panyam/templar/cmd/templar@latest
 
+# Initialize a new project
+templar init
+
+# Fetch external template sources
+templar get
+
+# List configured sources
+templar sources
+
 # Start development server
 templar serve -t ./templates -s /static:./public
 
 # Debug template dependencies
 templar debug -p templates homepage.html
-
-# Fetch external template sources
-templar get
 ```
 
 Key commands:
+- **`templar init`** - Create a templar.yaml configuration file
+- **`templar get`** - Fetch external template sources for vendoring
+- **`templar sources`** - List configured sources and their status
 - **`templar serve`** - Start HTTP server to serve and test templates
 - **`templar debug`** - Analyze dependencies, detect cycles, visualize with GraphViz
-- **`templar get`** - Fetch external template sources for vendoring
 - **`templar version`** - Print version information
 
 Configuration via `.templar.yaml` or environment variables (`TEMPLAR_` prefix).

@@ -133,6 +133,18 @@ Resolves to:
 
 ## CLI Commands
 
+### `templar init` - Initialize Configuration
+
+```bash
+# Create templar.yaml in current directory
+templar init
+
+# Overwrite existing configuration
+templar init --force
+```
+
+This creates a minimal `templar.yaml` with sensible defaults and a `templates/` directory.
+
 ### `templar get` - Fetch Dependencies
 
 ```bash

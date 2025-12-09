@@ -10,20 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// VendorLock represents the templar.lock file
-type VendorLock struct {
-	Version int                     `yaml:"version"`
-	Sources map[string]LockedSource `yaml:"sources"`
-}
-
-// LockedSource represents a locked source with resolved commit
-type LockedSource struct {
-	URL            string `yaml:"url"`
-	Ref            string `yaml:"ref"`
-	ResolvedCommit string `yaml:"resolved_commit"`
-	FetchedAt      string `yaml:"fetched_at"`
-}
-
 // TestVendorConfig_Parse tests parsing of templar.yaml configuration
 func TestVendorConfig_Parse(t *testing.T) {
 	configYAML := `
@@ -827,6 +813,197 @@ sources:
 
 	if _, ok := loader.config.Sources["uikit"]; !ok {
 		t.Error("Expected 'uikit' source to be in config")
+	}
+}
+
+// TestFetchSource_GitHub tests fetching a source from GitHub
+func TestFetchSource_GitHub(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping network test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "templar-fetch-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := &VendorConfig{
+		Sources: map[string]SourceConfig{
+			"templar": {
+				URL: "github.com/panyam/templar",
+				Ref: "main",
+			},
+		},
+		VendorDir: tmpDir,
+	}
+
+	// Fetch the source
+	result, err := FetchSource(config, "templar")
+	if err != nil {
+		t.Fatalf("Failed to fetch source: %v", err)
+	}
+
+	// Check that files were downloaded
+	if result.ResolvedCommit == "" {
+		t.Error("Expected resolved commit to be set")
+	}
+
+	// Check that the directory exists
+	expectedDir := filepath.Join(tmpDir, "github.com", "panyam", "templar")
+	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
+		t.Errorf("Expected directory %s to exist", expectedDir)
+	}
+
+	// Check that a known file exists (README.md should exist in templar repo)
+	readmePath := filepath.Join(expectedDir, "README.md")
+	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
+		t.Errorf("Expected README.md to exist at %s", readmePath)
+	}
+}
+
+// TestFetchSource_WithPath tests fetching with a subdirectory path
+func TestFetchSource_WithPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping network test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "templar-fetch-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := &VendorConfig{
+		Sources: map[string]SourceConfig{
+			"templar-docs": {
+				URL:  "github.com/panyam/templar",
+				Path: "docs",
+				Ref:  "main",
+			},
+		},
+		VendorDir: tmpDir,
+	}
+
+	// Fetch the source
+	result, err := FetchSource(config, "templar-docs")
+	if err != nil {
+		t.Fatalf("Failed to fetch source: %v", err)
+	}
+
+	if result.ResolvedCommit == "" {
+		t.Error("Expected resolved commit to be set")
+	}
+
+	// The full repo is cloned, but Path is used for template resolution
+	expectedDir := filepath.Join(tmpDir, "github.com", "panyam", "templar")
+	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
+		t.Errorf("Expected directory %s to exist", expectedDir)
+	}
+}
+
+// TestFetchSource_InvalidSource tests error handling for invalid source
+func TestFetchSource_InvalidSource(t *testing.T) {
+	config := &VendorConfig{
+		Sources: map[string]SourceConfig{
+			"valid": {
+				URL: "github.com/example/repo",
+				Ref: "main",
+			},
+		},
+		VendorDir: "/tmp/test",
+	}
+
+	_, err := FetchSource(config, "nonexistent")
+	if err == nil {
+		t.Error("Expected error for nonexistent source")
+	}
+}
+
+// TestFetchAllSources tests fetching all configured sources
+func TestFetchAllSources(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping network test in short mode")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "templar-fetch-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := &VendorConfig{
+		Sources: map[string]SourceConfig{
+			"templar": {
+				URL: "github.com/panyam/templar",
+				Ref: "main",
+			},
+		},
+		VendorDir: tmpDir,
+	}
+
+	results, err := FetchAllSources(config)
+	if err != nil {
+		t.Fatalf("Failed to fetch all sources: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result, got %d", len(results))
+	}
+
+	if result, ok := results["templar"]; ok {
+		if result.ResolvedCommit == "" {
+			t.Error("Expected resolved commit")
+		}
+	} else {
+		t.Error("Expected 'templar' in results")
+	}
+}
+
+// TestWriteAndLoadLockFile tests lock file round-trip
+func TestWriteAndLoadLockFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-lock-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	lockPath := filepath.Join(tmpDir, "templar.lock")
+
+	// Create a lock file
+	lock := &VendorLock{
+		Version: 1,
+		Sources: map[string]LockedSource{
+			"uikit": {
+				URL:            "github.com/example/uikit",
+				Ref:            "v1.0.0",
+				ResolvedCommit: "abc123def456",
+				FetchedAt:      "2024-12-08T10:30:00Z",
+			},
+		},
+	}
+
+	// Write it
+	if err := WriteLockFile(lockPath, lock); err != nil {
+		t.Fatalf("Failed to write lock file: %v", err)
+	}
+
+	// Read it back
+	loaded, err := LoadLockFile(lockPath)
+	if err != nil {
+		t.Fatalf("Failed to load lock file: %v", err)
+	}
+
+	if loaded.Version != 1 {
+		t.Errorf("Expected version 1, got %d", loaded.Version)
+	}
+
+	if source, ok := loaded.Sources["uikit"]; ok {
+		if source.ResolvedCommit != "abc123def456" {
+			t.Errorf("Expected commit abc123def456, got %s", source.ResolvedCommit)
+		}
+	} else {
+		t.Error("Expected 'uikit' in loaded sources")
 	}
 }
 
