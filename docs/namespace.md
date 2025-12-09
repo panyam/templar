@@ -22,7 +22,7 @@ After importing, all templates from that file are available with the prefix:
 
 ## Why Namespaces?
 
-Without namespaces, template names are global. If two files define a template with the same name, the second overwrites the first.
+Without namespaces, template names are global. If two files define a template with the same name, the second one causes go template loader to throw a duplicate-definition error.
 
 ### The Problem: Name Collision
 
@@ -40,7 +40,7 @@ Without namespaces, template names are global. If two files define a template wi
 │  ┌───────────────────────────────────────────────────────────────┐          │
 │  │                     Global Template Space                     │          │
 │  │  ┌─────────────────────────────────────────────────────────┐  │          │
-│  │  │  "button" = ???  (which one wins?)                      │  │          │
+│  │  │  "button" = ???  (which one wins?) (dup error thrown)   │  │          │
 │  │  └─────────────────────────────────────────────────────────┘  │          │
 │  └───────────────────────────────────────────────────────────────┘          │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -398,6 +398,8 @@ Namespaces work together with the `extend` directive. First namespace to import,
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Important**: The `::` prefix is consumed during namespace application. After namespacing, `{{ template "::formatDate" }}` becomes `{{ template "formatDate" }}` in the processed template. This is a one-shot escape - if the resulting template were re-namespaced (which is not a typical use case), the now-plain `formatDate` would get the new namespace prefix. Templates are generally not designed to be re-namespaced.
 
 ### 4. Order matters: namespace before extend
 
