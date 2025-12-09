@@ -173,6 +173,8 @@ Tree-shaking is also supported with namespaces:
 {{/* Only button, icon, and their dependencies are included */}}
 ```
 
+See [namespace.md](docs/namespace.md) for detailed examples, the diamond problem, and common gotchas.
+
 ### 3. Template Extension (Inheritance)
 
 Extend base templates while overriding specific blocks:
@@ -194,6 +196,8 @@ This creates a new template `MyLayout` by copying `Base:layout`, but rewiring:
 - `{{ template "Base:content" . }}` → `{{ template "myContent" . }}`
 
 Non-overridden blocks retain their original references to the base templates.
+
+**Important**: The `extend` directive only rewrites template calls within the copied template itself, not in templates it calls. For nested overrides, you need to extend each level of the hierarchy. See [extend.md](docs/extend.md) for detailed examples, visual diagrams, and common gotchas.
 
 ### 4. Multiple Template Loaders
 
@@ -377,6 +381,12 @@ My primary goal here was to have as much alignment with Go's template stdlib.   
 dependencies, the goal itself was to have strict adherence to Go's templating syntax.   Using the same Go template
 syntax also allows extra features during preprocessing of templates.  (eg using same set of variables for both
 pre-processing as well as for final rendering).
+
+## Documentation
+
+- [Motivation](docs/Motivation.md) - Why templar was created
+- [Namespacing](docs/namespace.md) - Avoiding name collisions with namespace imports
+- [Template Extension](docs/extend.md) - Inheriting and overriding templates
 
 ## Contributing
 
