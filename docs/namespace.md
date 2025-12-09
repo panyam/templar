@@ -396,8 +396,8 @@ Namespaces work together with the `extend` directive. First namespace to import,
 ┌─────────────────────────────────────────────────────────────────┐
 │  {{# namespace "UI" "components.html" #}}                       │
 │                                                                 │
-│  {{ template "button" . }}      ✗ WRONG - "button" not found   │
-│  {{ template "UI:button" . }}   ✓ CORRECT - use prefix         │
+│  {{ template "button" . }}      ✗ WRONG - "button" not found    │
+│  {{ template "UI:button" . }}   ✓ CORRECT - use prefix          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
