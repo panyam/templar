@@ -199,7 +199,45 @@ Non-overridden blocks retain their original references to the base templates.
 
 **Important**: The `extend` directive only rewrites template calls within the copied template itself, not in templates it calls. For nested overrides, you need to extend each level of the hierarchy. See [extend.md](docs/extend.md) for detailed examples, visual diagrams, and common gotchas.
 
-### 4. Multiple Template Loaders
+### 4. External Template Sources (Vendoring)
+
+Load templates from external sources like GitHub repositories:
+
+```yaml
+# templar.yaml
+sources:
+  goapplib:
+    url: github.com/panyam/goapplib
+    path: templates
+    ref: v1.2.0
+
+vendor_dir: ./templar_modules
+search_paths:
+  - ./templates
+  - ./templar_modules
+```
+
+Reference external templates with the `@sourcename` prefix:
+
+```html
+{{# namespace "EL" "@goapplib/components/EntityListing.html" #}}
+
+{{ define "MyPage" }}
+    {{ template "EL:EntityListing" .Items }}
+{{ end }}
+```
+
+Fetch dependencies with:
+
+```bash
+templar get              # Fetch all sources
+templar get --update     # Update to latest versions
+templar get --verify     # Verify local matches lock file
+```
+
+See [vendoring.md](docs/vendoring.md) for deployment strategies, configuration reference, and examples.
+
+### 5. Multiple Template Loaders
 
 Templar allows you to configure multiple template loaders with fallback behavior:
 
@@ -215,7 +253,7 @@ loaderList.AddLoader(templar.NewFileSystemLoader("shared/templates/"))
 loaderList.DefaultLoader = templar.NewFileSystemLoader("default/templates/")
 ```
 
-### 5. Template Groups
+### 6. Template Groups
 
 Template groups manage collections of templates and their dependencies:
 
@@ -387,6 +425,7 @@ pre-processing as well as for final rendering).
 - [Motivation](docs/Motivation.md) - Why templar was created
 - [Namespacing](docs/namespace.md) - Avoiding name collisions with namespace imports
 - [Template Extension](docs/extend.md) - Inheriting and overriding templates
+- [Vendoring](docs/vendoring.md) - Loading templates from external sources (GitHub, etc.)
 
 ## Contributing
 
