@@ -102,8 +102,13 @@ func runGet(cmd *cobra.Command, args []string) error {
 		fmt.Println("Would fetch:")
 		for _, name := range sourcesToFetch {
 			source := config.Sources[name]
-			destDir := filepath.Join(config.VendorDir, source.URL)
-			fmt.Printf("  %s: %s@%s → %s\n", name, source.URL, source.Ref, destDir)
+			destDir := filepath.Join(config.VendorDir, name)
+			ref := source.GetRef()
+			pathInfo := ""
+			if source.Path != "" {
+				pathInfo = fmt.Sprintf(" (path: %s)", source.Path)
+			}
+			fmt.Printf("  %s: %s@%s%s → %s\n", name, source.URL, ref, pathInfo, destDir)
 		}
 		return nil
 	}
@@ -119,7 +124,8 @@ func runGet(cmd *cobra.Command, args []string) error {
 	results := make(map[string]*templar.FetchResult)
 	for _, name := range sourcesToFetch {
 		source := config.Sources[name]
-		fmt.Printf("  %s: %s@%s... ", name, source.URL, source.Ref)
+		ref := source.GetRef()
+		fmt.Printf("  %s: %s@%s... ", name, source.URL, ref)
 
 		result, err := templar.FetchSource(config, name)
 		if err != nil {
@@ -128,7 +134,11 @@ func runGet(cmd *cobra.Command, args []string) error {
 		}
 
 		results[name] = result
-		fmt.Printf("OK (%s)\n", result.ResolvedCommit[:7])
+		commitDisplay := result.ResolvedCommit
+		if len(commitDisplay) > 7 {
+			commitDisplay = commitDisplay[:7]
+		}
+		fmt.Printf("OK (%s, %d files)\n", commitDisplay, result.FilesExtracted)
 	}
 
 	// Write lock file
@@ -147,6 +157,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 	for name, result := range results {
 		lock.Sources[name] = templar.LockedSource{
 			URL:            result.URL,
+			Version:        result.Version,
 			Ref:            result.Ref,
 			ResolvedCommit: result.ResolvedCommit,
 			FetchedAt:      result.FetchedAt.Format("2006-01-02T15:04:05Z"),
@@ -171,8 +182,8 @@ func runVerify(config *templar.VendorConfig, configPath string, sources []string
 
 	allGood := true
 	for _, name := range sources {
-		source := config.Sources[name]
-		destDir := filepath.Join(config.VendorDir, source.URL)
+		// Flat structure: VendorDir/sourceName
+		destDir := filepath.Join(config.VendorDir, name)
 
 		locked, ok := lock.Sources[name]
 		if !ok {
@@ -189,7 +200,11 @@ func runVerify(config *templar.VendorConfig, configPath string, sources []string
 		}
 
 		// TODO: Verify actual commit matches lock file
-		fmt.Printf("✓ %s: matches lock (%s)\n", name, locked.ResolvedCommit[:7])
+		commitDisplay := locked.ResolvedCommit
+		if len(commitDisplay) > 7 {
+			commitDisplay = commitDisplay[:7]
+		}
+		fmt.Printf("✓ %s: matches lock (%s)\n", name, commitDisplay)
 	}
 
 	if !allGood {

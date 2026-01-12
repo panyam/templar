@@ -11,9 +11,23 @@ import (
 
 // SourceConfig represents a single external template source configuration
 type SourceConfig struct {
-	URL  string `yaml:"url"`
-	Path string `yaml:"path"`
-	Ref  string `yaml:"ref"`
+	URL     string   `yaml:"url"`               // Repository URL (e.g., github.com/user/repo)
+	Path    string   `yaml:"path"`              // Directory within repo to fetch (e.g., templates)
+	Version string   `yaml:"version,omitempty"` // Semantic version tag (e.g., v1.2.0)
+	Ref     string   `yaml:"ref,omitempty"`     // Git ref - branch or commit (fallback if no version)
+	Include []string `yaml:"include,omitempty"` // Glob patterns to include (e.g., ["**/*.html"])
+	Exclude []string `yaml:"exclude,omitempty"` // Glob patterns to exclude (e.g., ["*_test.*"])
+}
+
+// GetRef returns the effective git ref (version takes precedence over ref)
+func (s *SourceConfig) GetRef() string {
+	if s.Version != "" {
+		return s.Version
+	}
+	if s.Ref != "" {
+		return s.Ref
+	}
+	return "main" // Default to main branch
 }
 
 // VendorConfig represents the templar.yaml configuration
@@ -182,18 +196,17 @@ func (s *SourceLoader) loadFromSource(pattern string, cwd string) ([]*Template, 
 	sourcePath := withoutAt[slashIdx+1:]
 
 	// Look up source in config
-	source, ok := s.config.Sources[sourceName]
+	_, ok := s.config.Sources[sourceName]
 	if !ok {
 		return nil, fmt.Errorf("source '%s' not defined in templar.yaml (pattern: %s)", sourceName, pattern)
 	}
 
-	// Build the vendored path
-	// VendorDir/url/path/sourcePath
-	// e.g., templar_modules/github.com/panyam/goapplib/templates/components/EntityListing.html
+	// Build the vendored path using flat structure
+	// VendorDir/sourceName/sourcePath
+	// e.g., templar_modules/goapplib/components/EntityListing.html
 	vendoredPath := filepath.Join(
 		s.config.VendorDir,
-		source.URL,
-		source.Path,
+		sourceName,
 		sourcePath,
 	)
 

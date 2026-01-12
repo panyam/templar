@@ -113,8 +113,8 @@ func TestSourceLoader_ResolveAtPrefix(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create directory structure simulating vendored files
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "uikit", "templates", "components")
+	// Create directory structure simulating vendored files (flat structure: templar_modules/sourcename/...)
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "uikit", "components")
 	if err := os.MkdirAll(vendorDir, 0755); err != nil {
 		t.Fatalf("Failed to create vendor dir: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestSourceLoader_LocalTemplatesTakePrecedence(t *testing.T) {
 
 	// Create both local and vendored versions of the same template
 	localTemplatesDir := filepath.Join(tmpDir, "templates")
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "lib")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "lib")
 
 	if err := os.MkdirAll(localTemplatesDir, 0755); err != nil {
 		t.Fatalf("Failed to create local templates dir: %v", err)
@@ -318,7 +318,7 @@ func TestSourceLoader_CaseSensitiveSourceNames(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create vendored files for the proper case
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "UIKit", "templates")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "UIKit")
 	if err := os.MkdirAll(vendorDir, 0755); err != nil {
 		t.Fatalf("Failed to create vendor dir: %v", err)
 	}
@@ -364,7 +364,7 @@ func TestVendoredLoader_IntegrationWithNamespace(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create vendored template structure
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "uikit", "templates", "components")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "uikit", "components")
 	if err := os.MkdirAll(vendorDir, 0755); err != nil {
 		t.Fatalf("Failed to create vendor dir: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestSourceLoader_RelativePathsInVendoredTemplates(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create vendored template structure with relative includes
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "uikit", "templates")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "uikit")
 	componentsDir := filepath.Join(vendorDir, "components")
 	sharedDir := filepath.Join(vendorDir, "shared")
 	if err := os.MkdirAll(componentsDir, 0755); err != nil {
@@ -708,7 +708,7 @@ func TestNewSourceLoaderFromConfig(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create directory structure
-	vendorDir := filepath.Join(tmpDir, "templar_modules", "github.com", "example", "uikit", "templates")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "uikit")
 	if err := os.MkdirAll(vendorDir, 0755); err != nil {
 		t.Fatalf("Failed to create vendor dir: %v", err)
 	}
@@ -724,8 +724,8 @@ func TestNewSourceLoaderFromConfig(t *testing.T) {
 		t.Fatalf("Failed to write card.html: %v", err)
 	}
 
-	// Create page template
-	pageContent := `{{# namespace "UI" "@uikit/templates/card.html" #}}
+	// Create page template (with flat structure, files from path: templates are at root)
+	pageContent := `{{# namespace "UI" "@uikit/card.html" #}}
 {{ define "page" }}{{ template "UI:Card" . }}{{ end }}`
 	if err := os.WriteFile(filepath.Join(templatesDir, "page.html"), []byte(pageContent), 0644); err != nil {
 		t.Fatalf("Failed to write page.html: %v", err)
@@ -849,8 +849,8 @@ func TestFetchSource_GitHub(t *testing.T) {
 		t.Error("Expected resolved commit to be set")
 	}
 
-	// Check that the directory exists
-	expectedDir := filepath.Join(tmpDir, "github.com", "panyam", "templar")
+	// Check that the directory exists (flat structure: VendorDir/sourceName/)
+	expectedDir := filepath.Join(tmpDir, "templar")
 	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
 		t.Errorf("Expected directory %s to exist", expectedDir)
 	}
@@ -859,6 +859,11 @@ func TestFetchSource_GitHub(t *testing.T) {
 	readmePath := filepath.Join(expectedDir, "README.md")
 	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
 		t.Errorf("Expected README.md to exist at %s", readmePath)
+	}
+
+	// Check files extracted count
+	if result.FilesExtracted == 0 {
+		t.Error("Expected at least some files to be extracted")
 	}
 }
 
@@ -895,11 +900,15 @@ func TestFetchSource_WithPath(t *testing.T) {
 		t.Error("Expected resolved commit to be set")
 	}
 
-	// The full repo is cloned, but Path is used for template resolution
-	expectedDir := filepath.Join(tmpDir, "github.com", "panyam", "templar")
+	// With flat structure and path filtering, files from docs/ are placed in templar-docs/
+	expectedDir := filepath.Join(tmpDir, "templar-docs")
 	if _, err := os.Stat(expectedDir); os.IsNotExist(err) {
 		t.Errorf("Expected directory %s to exist", expectedDir)
 	}
+
+	// With path: docs, only files from docs/ subdirectory should be extracted
+	// If docs/ doesn't exist or is empty, FilesExtracted might be 0
+	t.Logf("Files extracted: %d", result.FilesExtracted)
 }
 
 // TestFetchSource_InvalidSource tests error handling for invalid source
