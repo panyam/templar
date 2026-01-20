@@ -241,31 +241,29 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 	}
 
 	// Add namespaced templates to output
-	if false { // disable debgging for now
-		var createdNames []string
-		for name := range templatesToInclude {
-			tmpl := allTemplates[name]
-			if tmpl == nil || tmpl.Tree == nil {
-				continue
-			}
-
-			// Copy tree and apply namespace rewrites
-			copiedTree := tmpl.Tree.Copy()
-			WalkParseTree(copiedTree.Root, func(node *parse.TemplateNode) {
-				// Apply full namespace transformation rules
-				node.Name = TransformName(node.Name, curr.Namespace)
-			})
-
-			namespacedName := rewrites[name]
-			copiedTree.Name = namespacedName
-			out, err = out.AddParseTree(namespacedName, copiedTree)
-			if err != nil {
-				return panicOrError(err)
-			}
-			createdNames = append(createdNames, namespacedName)
+	var createdNames []string
+	for name := range templatesToInclude {
+		tmpl := allTemplates[name]
+		if tmpl == nil || tmpl.Tree == nil {
+			continue
 		}
-		slog.Debug("processNamespacedTemplate: created templates", "path", curr.Path, "created", createdNames)
+
+		// Copy tree and apply namespace rewrites
+		copiedTree := tmpl.Tree.Copy()
+		WalkParseTree(copiedTree.Root, func(node *parse.TemplateNode) {
+			// Apply full namespace transformation rules
+			node.Name = TransformName(node.Name, curr.Namespace)
+		})
+
+		namespacedName := rewrites[name]
+		copiedTree.Name = namespacedName
+		out, err = out.AddParseTree(namespacedName, copiedTree)
+		if err != nil {
+			return panicOrError(err)
+		}
+		createdNames = append(createdNames, namespacedName)
 	}
+	// slog.Debug("processNamespacedTemplate: created templates", "path", curr.Path, "created", createdNames)
 
 	return nil
 }
