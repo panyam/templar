@@ -215,7 +215,7 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 			allNames = append(allNames, tmpl.Name())
 		}
 	}
-	slog.Debug("processNamespacedTemplate: found templates", "path", curr.Path, "templates", allNames)
+	// slog.Debug("processNamespacedTemplate: found templates", "path", curr.Path, "templates", allNames)
 
 	// Determine which templates to include
 	var templatesToInclude map[string]bool
@@ -241,29 +241,31 @@ func (t *TemplateGroup) processNamespacedTemplate(curr *Template, out *htmpl.Tem
 	}
 
 	// Add namespaced templates to output
-	var createdNames []string
-	for name := range templatesToInclude {
-		tmpl := allTemplates[name]
-		if tmpl == nil || tmpl.Tree == nil {
-			continue
-		}
+	if false { // disable debgging for now
+		var createdNames []string
+		for name := range templatesToInclude {
+			tmpl := allTemplates[name]
+			if tmpl == nil || tmpl.Tree == nil {
+				continue
+			}
 
-		// Copy tree and apply namespace rewrites
-		copiedTree := tmpl.Tree.Copy()
-		WalkParseTree(copiedTree.Root, func(node *parse.TemplateNode) {
-			// Apply full namespace transformation rules
-			node.Name = TransformName(node.Name, curr.Namespace)
-		})
+			// Copy tree and apply namespace rewrites
+			copiedTree := tmpl.Tree.Copy()
+			WalkParseTree(copiedTree.Root, func(node *parse.TemplateNode) {
+				// Apply full namespace transformation rules
+				node.Name = TransformName(node.Name, curr.Namespace)
+			})
 
-		namespacedName := rewrites[name]
-		copiedTree.Name = namespacedName
-		out, err = out.AddParseTree(namespacedName, copiedTree)
-		if err != nil {
-			return panicOrError(err)
+			namespacedName := rewrites[name]
+			copiedTree.Name = namespacedName
+			out, err = out.AddParseTree(namespacedName, copiedTree)
+			if err != nil {
+				return panicOrError(err)
+			}
+			createdNames = append(createdNames, namespacedName)
 		}
-		createdNames = append(createdNames, namespacedName)
+		slog.Debug("processNamespacedTemplate: created templates", "path", curr.Path, "created", createdNames)
 	}
-	slog.Debug("processNamespacedTemplate: created templates", "path", curr.Path, "created", createdNames)
 
 	return nil
 }
@@ -319,7 +321,7 @@ func (t *TemplateGroup) processExtensions(root *Template, out *htmpl.Template) e
 // processExtensionsList processes a list of extensions.
 // For each extension, it copies the source template and rewires references.
 func (t *TemplateGroup) processExtensionsList(extensions []Extension, out *htmpl.Template) error {
-	if len(extensions) > 0 {
+	if false && len(extensions) > 0 {
 		// Log available templates for debugging
 		var availableNames []string
 		for _, tmpl := range out.Templates() {
