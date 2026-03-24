@@ -14,6 +14,7 @@
 - external-sources: Fetch templates from URLs/GitHub
 - template-cli: CLI tool for template serving and debugging
 - dependency-visualization: GraphViz visualization of template dependency graph
+- llm-workflow-guidance: Generated files include AI/LLM-readable markers to prevent incorrect copying of templar_modules/
 
 ## Module
 github.com/panyam/templar
@@ -47,3 +48,6 @@ Stable
 - Directive-based includes (pre-rendering)
 - Namespace colon syntax
 - @source/ prefix for external templates
+- templar.yaml is source of truth; templar_modules/ and templar.lock are generated
+- `templar get` auto-writes README.md inside templar_modules/ with LLM-readable markers
+- Lock file header includes explicit "do not copy" instructions for AI agents

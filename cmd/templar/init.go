@@ -49,8 +49,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write default config
-	content := `# Templar Configuration
+	content := `# Templar Configuration — This file is the SOURCE OF TRUTH for template dependencies
 # See https://github.com/panyam/templar/blob/main/docs/vendoring.md
+#
+# IMPORTANT: templar_modules/ is a GENERATED directory (like node_modules/).
+# Do not copy or edit it directly. Run 'templar get' to regenerate it from this file.
 
 # External template sources
 # Add sources here and run 'templar get' to fetch them

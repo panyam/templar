@@ -141,6 +141,12 @@ func runGet(cmd *cobra.Command, args []string) error {
 		fmt.Printf("OK (%s, %d files)\n", commitDisplay, result.FilesExtracted)
 	}
 
+	// Write vendor directory README
+	if err := templar.WriteVendorReadme(config.VendorDir); err != nil {
+		// Non-fatal, just warn
+		fmt.Fprintf(os.Stderr, "Warning: could not write vendor README: %v\n", err)
+	}
+
 	// Write lock file
 	lockPath := filepath.Join(filepath.Dir(configPath), "templar.lock")
 	lock := &templar.VendorLock{
