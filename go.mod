@@ -1,9 +1,11 @@
 module github.com/panyam/templar
 
-go 1.23.5
+go 1.24
+
+toolchain go1.24.6
 
 require (
-	github.com/panyam/goutils v0.1.10
+	github.com/panyam/goutils v0.1.13
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	gopkg.in/yaml.v3 v3.0.1
