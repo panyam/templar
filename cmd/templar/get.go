@@ -148,7 +148,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write lock file
-	lockPath := filepath.Join(filepath.Dir(configPath), "templar.lock")
+	lockPath := filepath.Join(filepath.Dir(configPath), templar.DefaultLockFile)
 	lock := &templar.VendorLock{
 		Version: 1,
 		Sources: make(map[string]templar.LockedSource),
@@ -179,7 +179,7 @@ func runGet(cmd *cobra.Command, args []string) error {
 }
 
 func runVerify(config *templar.VendorConfig, configPath string, sources []string) error {
-	lockPath := filepath.Join(filepath.Dir(configPath), "templar.lock")
+	lockPath := filepath.Join(filepath.Dir(configPath), templar.DefaultLockFile)
 
 	lock, err := templar.LoadLockFile(lockPath)
 	if err != nil {

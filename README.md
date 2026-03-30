@@ -267,6 +267,25 @@ templar get --verify     # Verify local matches lock file
 
 See [vendoring.md](docs/vendoring.md) for deployment strategies, configuration reference, and examples.
 
+### 7. Library Embedding
+
+Tools can embed templar as a library and customize all file names and generated content:
+
+```go
+info := templar.ToolInfo{
+    Name:        "mytool",
+    ConfigNames: []string{".mytool.yaml"},
+    VendorDir:   "./.mytool-modules",
+    LockFile:    ".mytool.lock",
+    FetchCmd:    "mytool fetch",
+}
+
+configPath, _ := templar.FindVendorConfigWithNames(dir, info.ConfigNames)
+config, _ := templar.LoadVendorConfigWithDefaults(configPath, info)
+```
+
+See the [Integration Guide](INTEGRATION_GUIDE.md#custom-tool-names-library-embedding) for full details.
+
 ## Advanced Usage
 
 ### Conditional Template Loading

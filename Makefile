@@ -6,7 +6,7 @@ BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 # ldflags to inject version info
 LDFLAGS := -X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE)
 
-.PHONY: test install build
+.PHONY: test install build setup-hooks
 
 test:
 	go test ./...
@@ -16,3 +16,6 @@ build:
 
 install:
 	go build -ldflags="$(LDFLAGS)" -o ${GOBIN}/templar ./cmd/templar
+
+setup-hooks:
+	git config core.hooksPath .githooks

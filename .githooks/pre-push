@@ -1,0 +1,5 @@
+#!/bin/sh
+# Pre-push hook: run tests before pushing
+
+echo "Running tests before push..."
+go test ./...
