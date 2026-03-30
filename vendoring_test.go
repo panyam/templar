@@ -1074,3 +1074,321 @@ func TestSourceLoader_WithFileSystemLoaderFallback(t *testing.T) {
 		t.Errorf("Expected button, got: %s", result)
 	}
 }
+
+// TestFindVendorConfigWithNames_CustomNames verifies that FindVendorConfigWithNames
+// can discover config files with custom names (e.g. ".slyds.yaml") that the default
+// FindVendorConfig would not find. This is the core enabler for embedding applications
+// to use their own config file naming conventions.
+func TestFindVendorConfigWithNames_CustomNames(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a .slyds.yaml file (not templar.yaml)
+	slydsConfig := filepath.Join(tmpDir, ".slyds.yaml")
+	if err := os.WriteFile(slydsConfig, []byte("sources: {}\n"), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// FindVendorConfigWithNames with custom names should find it
+	found, err := FindVendorConfigWithNames(tmpDir, []string{".slyds.yaml", "slyds.yaml"})
+	if err != nil {
+		t.Fatalf("Expected to find .slyds.yaml, got error: %v", err)
+	}
+	if filepath.Base(found) != ".slyds.yaml" {
+		t.Errorf("Expected .slyds.yaml, got %s", filepath.Base(found))
+	}
+
+	// Default FindVendorConfig should NOT find it (no templar.yaml exists)
+	_, err = FindVendorConfig(tmpDir)
+	if err == nil {
+		t.Error("Expected FindVendorConfig to fail (no templar.yaml), but it succeeded")
+	}
+}
+
+// TestFindVendorConfigWithNames_WalksUp verifies that FindVendorConfigWithNames
+// walks up parent directories to find a config file with a custom name, matching
+// the same traversal behavior as the default FindVendorConfig.
+func TestFindVendorConfigWithNames_WalksUp(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create config in parent dir
+	configPath := filepath.Join(tmpDir, ".myapp.yaml")
+	if err := os.WriteFile(configPath, []byte("sources: {}\n"), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// Create a subdirectory to search from
+	subDir := filepath.Join(tmpDir, "sub", "deep")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdir: %v", err)
+	}
+
+	// Should find it by walking up
+	found, err := FindVendorConfigWithNames(subDir, []string{".myapp.yaml"})
+	if err != nil {
+		t.Fatalf("Expected to find .myapp.yaml by walking up, got error: %v", err)
+	}
+	if filepath.Base(found) != ".myapp.yaml" {
+		t.Errorf("Expected .myapp.yaml, got %s", filepath.Base(found))
+	}
+}
+
+// TestFindVendorConfigWithNames_NotFound verifies that FindVendorConfigWithNames
+// returns a descriptive error listing the config names it searched for when no
+// config file is found in any parent directory.
+func TestFindVendorConfigWithNames_NotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, err = FindVendorConfigWithNames(tmpDir, []string{".nonexistent.yaml"})
+	if err == nil {
+		t.Fatal("Expected error when no config found, got nil")
+	}
+	if !strings.Contains(err.Error(), ".nonexistent.yaml") {
+		t.Errorf("Expected error to mention searched file names, got: %v", err)
+	}
+}
+
+// TestLoadVendorConfigWithDefaults_CustomVendorDir verifies that when a config
+// file has no vendor_dir set, LoadVendorConfigWithDefaults applies the custom
+// default from ToolInfo rather than the hardcoded "./templar_modules".
+func TestLoadVendorConfigWithDefaults_CustomVendorDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Config with no vendor_dir
+	configPath := filepath.Join(tmpDir, ".slyds.yaml")
+	if err := os.WriteFile(configPath, []byte("sources: {}\n"), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	info := ToolInfo{
+		Name:      "slyds",
+		VendorDir: "./.slyds-modules",
+		LockFile:  ".slyds.lock",
+	}
+
+	config, err := LoadVendorConfigWithDefaults(configPath, info)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if config.VendorDir != "./.slyds-modules" {
+		t.Errorf("Expected VendorDir './.slyds-modules', got '%s'", config.VendorDir)
+	}
+}
+
+// TestLoadVendorConfigWithDefaults_ExplicitOverridesDefault verifies that when a
+// config file explicitly sets vendor_dir, that value takes precedence over the
+// ToolInfo default. This ensures embedding apps don't accidentally override
+// user-specified configuration.
+func TestLoadVendorConfigWithDefaults_ExplicitOverridesDefault(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Config with explicit vendor_dir
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	configContent := "sources: {}\nvendor_dir: ./my-custom-vendor\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	info := ToolInfo{
+		Name:      "slyds",
+		VendorDir: "./.slyds-modules",
+	}
+
+	config, err := LoadVendorConfigWithDefaults(configPath, info)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Explicit value in YAML should win over ToolInfo default
+	if config.VendorDir != "./my-custom-vendor" {
+		t.Errorf("Expected VendorDir './my-custom-vendor', got '%s'", config.VendorDir)
+	}
+}
+
+// TestBackwardCompatibility_FindVendorConfig verifies that the existing
+// FindVendorConfig function continues to find templar.yaml files exactly
+// as before, ensuring no regression for current users.
+func TestBackwardCompatibility_FindVendorConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "templar.yaml")
+	if err := os.WriteFile(configPath, []byte("sources: {}\n"), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	found, err := FindVendorConfig(tmpDir)
+	if err != nil {
+		t.Fatalf("Expected to find templar.yaml, got error: %v", err)
+	}
+	if filepath.Base(found) != "templar.yaml" {
+		t.Errorf("Expected templar.yaml, got %s", filepath.Base(found))
+	}
+}
+
+// TestBackwardCompatibility_LoadVendorConfig verifies that the existing
+// LoadVendorConfig function applies the standard templar defaults (VendorDir
+// = "./templar_modules") when no vendor_dir is specified, ensuring no
+// regression for current users.
+func TestBackwardCompatibility_LoadVendorConfig(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "templar.yaml")
+	if err := os.WriteFile(configPath, []byte("sources: {}\n"), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	config, err := LoadVendorConfig(configPath)
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if config.VendorDir != "./templar_modules" {
+		t.Errorf("Expected default VendorDir './templar_modules', got '%s'", config.VendorDir)
+	}
+}
+
+// TestWriteVendorReadmeFor_CustomBranding verifies that WriteVendorReadmeFor
+// generates a README with the embedding tool's name and commands instead of
+// templar's defaults. This ensures generated content in vendor directories
+// correctly identifies the tool that manages them.
+func TestWriteVendorReadmeFor_CustomBranding(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	info := ToolInfo{
+		Name:        "slyds",
+		ConfigNames: []string{".slyds.yaml"},
+		VendorDir:   "./.slyds-modules",
+		LockFile:    ".slyds.lock",
+		FetchCmd:    "slyds update",
+		ProjectURL:  "https://github.com/panyam/slyds",
+	}
+
+	if err := WriteVendorReadmeFor(tmpDir, info); err != nil {
+		t.Fatalf("WriteVendorReadmeFor failed: %v", err)
+	}
+
+	readmePath := filepath.Join(tmpDir, "README.md")
+	data, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("Failed to read generated README: %v", err)
+	}
+	content := string(data)
+
+	// Should contain custom tool references
+	if !strings.Contains(content, "slyds") {
+		t.Error("Expected README to contain 'slyds'")
+	}
+	if !strings.Contains(content, "slyds update") {
+		t.Error("Expected README to contain 'slyds update' command")
+	}
+	if !strings.Contains(content, ".slyds.yaml") {
+		t.Error("Expected README to contain '.slyds.yaml'")
+	}
+
+	// Should NOT contain templar-specific references
+	if strings.Contains(content, "templar get") {
+		t.Error("README should not contain 'templar get' when using custom ToolInfo")
+	}
+	if strings.Contains(content, "templar.yaml") {
+		t.Error("README should not contain 'templar.yaml' when using custom ToolInfo")
+	}
+}
+
+// TestWriteLockFileFor_CustomBranding verifies that WriteLockFileFor generates
+// a lock file header with the embedding tool's name and commands. The header
+// is important for AI/LLM agents to understand which tool manages the lock file.
+func TestWriteLockFileFor_CustomBranding(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	info := ToolInfo{
+		Name:        "slyds",
+		ConfigNames: []string{".slyds.yaml"},
+		VendorDir:   "./.slyds-modules",
+		LockFile:    ".slyds.lock",
+		FetchCmd:    "slyds update",
+		ProjectURL:  "https://github.com/panyam/slyds",
+	}
+
+	lock := &VendorLock{
+		Version: 1,
+		Sources: map[string]LockedSource{
+			"core": {
+				URL:            "github.com/panyam/slyds-core",
+				Ref:            "main",
+				ResolvedCommit: "abc1234",
+				FetchedAt:      "2026-03-29T00:00:00Z",
+			},
+		},
+	}
+
+	lockPath := filepath.Join(tmpDir, ".slyds.lock")
+	if err := WriteLockFileFor(lockPath, lock, info); err != nil {
+		t.Fatalf("WriteLockFileFor failed: %v", err)
+	}
+
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated lock file: %v", err)
+	}
+	content := string(data)
+
+	// Should contain custom tool references
+	if !strings.Contains(content, "slyds") {
+		t.Error("Expected lock file to contain 'slyds'")
+	}
+	if !strings.Contains(content, "slyds update") {
+		t.Error("Expected lock file to contain 'slyds update' command")
+	}
+	if !strings.Contains(content, ".slyds.yaml") {
+		t.Error("Expected lock file to contain '.slyds.yaml'")
+	}
+
+	// Should NOT contain templar-specific references
+	if strings.Contains(content, "templar get") {
+		t.Error("Lock file should not contain 'templar get' when using custom ToolInfo")
+	}
+	if strings.Contains(content, "templar.yaml") {
+		t.Error("Lock file should not contain 'templar.yaml' when using custom ToolInfo")
+	}
+
+	// Should still contain the actual lock data
+	if !strings.Contains(content, "abc1234") {
+		t.Error("Expected lock file to contain the locked commit")
+	}
+}

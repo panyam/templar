@@ -41,8 +41,16 @@ type VendorConfig struct {
 	configDir string
 }
 
-// LoadVendorConfig loads a VendorConfig from a templar.yaml file
+// LoadVendorConfig loads a VendorConfig from a config file, applying templar's
+// standard defaults. For custom defaults, use LoadVendorConfigWithDefaults.
 func LoadVendorConfig(path string) (*VendorConfig, error) {
+	return LoadVendorConfigWithDefaults(path, DefaultToolInfo())
+}
+
+// LoadVendorConfigWithDefaults loads a VendorConfig from a config file, applying
+// defaults from the given ToolInfo. Embedding applications use this to set their
+// own default vendor directory when the config file doesn't specify one.
+func LoadVendorConfigWithDefaults(path string, info ToolInfo) (*VendorConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -56,9 +64,9 @@ func LoadVendorConfig(path string) (*VendorConfig, error) {
 	// Store the config directory for resolving relative paths
 	config.configDir = filepath.Dir(path)
 
-	// Apply defaults
+	// Apply defaults from ToolInfo
 	if config.VendorDir == "" {
-		config.VendorDir = "./templar_modules"
+		config.VendorDir = info.VendorDir
 	}
 
 	if len(config.SearchPaths) == 0 {
@@ -70,29 +78,34 @@ func LoadVendorConfig(path string) (*VendorConfig, error) {
 
 // FindVendorConfig searches for templar.yaml starting from the given directory
 // and walking up to parent directories until found or root is reached.
+// For custom config file names, use FindVendorConfigWithNames.
 func FindVendorConfig(startDir string) (string, error) {
+	return FindVendorConfigWithNames(startDir, DefaultConfigNames)
+}
+
+// FindVendorConfigWithNames searches for a config file with any of the given names,
+// starting from startDir and walking up to parent directories. Embedding applications
+// use this to search for their own config file names (e.g. ".slyds.yaml").
+func FindVendorConfigWithNames(startDir string, configNames []string) (string, error) {
 	dir, err := filepath.Abs(startDir)
 	if err != nil {
 		return "", err
 	}
 
 	for {
-		configPath := filepath.Join(dir, "templar.yaml")
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath, nil
-		}
-
-		// Try .templar.yaml as well
-		configPath = filepath.Join(dir, ".templar.yaml")
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath, nil
+		for _, name := range configNames {
+			configPath := filepath.Join(dir, name)
+			if _, err := os.Stat(configPath); err == nil {
+				return configPath, nil
+			}
 		}
 
 		// Move to parent directory
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached root
-			return "", fmt.Errorf("templar.yaml not found in %s or any parent directory", startDir)
+			return "", fmt.Errorf("config file not found in %s or any parent directory (searched for: %s)",
+				startDir, strings.Join(configNames, ", "))
 		}
 		dir = parent
 	}
@@ -198,7 +211,7 @@ func (s *SourceLoader) loadFromSource(pattern string, cwd string) ([]*Template, 
 	// Look up source in config
 	_, ok := s.config.Sources[sourceName]
 	if !ok {
-		return nil, fmt.Errorf("source '%s' not defined in templar.yaml (pattern: %s)", sourceName, pattern)
+		return nil, fmt.Errorf("source '%s' not defined in config (pattern: %s)", sourceName, pattern)
 	}
 
 	// Build the vendored path using flat structure

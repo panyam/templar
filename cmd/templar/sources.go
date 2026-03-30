@@ -51,7 +51,7 @@ func runSources(cmd *cobra.Command, args []string) error {
 	}
 
 	// Try to load lock file
-	lockPath := filepath.Join(filepath.Dir(configPath), "templar.lock")
+	lockPath := filepath.Join(filepath.Dir(configPath), templar.DefaultLockFile)
 	lock, _ := templar.LoadLockFile(lockPath) // Ignore error if lock file doesn't exist
 
 	// Print table

@@ -545,3 +545,7 @@ templar get --dry-run
 #   goapplib: github.com/panyam/goapplib@v1.2.0 → templar_modules/...
 #   shared: github.com/myorg/shared@main → templar_modules/...
 ```
+
+## Library Embedding
+
+When using templar as a library in another tool, all file names and generated content are customizable via `ToolInfo`. The `WithNames`, `WithDefaults`, and `For` function variants accept a `ToolInfo` to override templar's defaults. See the [Integration Guide](../INTEGRATION_GUIDE.md#custom-tool-names-library-embedding) for details.

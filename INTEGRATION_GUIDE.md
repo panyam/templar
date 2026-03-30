@@ -260,6 +260,46 @@ templar get   # Fetches using lock file
 
 ---
 
+## Custom Tool Names (Library Embedding)
+
+When building a tool that embeds templar as a library (e.g. slyds, a presentation tool), you can customize all file names and generated content using `ToolInfo`:
+
+```go
+import tmplr "github.com/panyam/templar"
+
+info := tmplr.ToolInfo{
+    Name:        "slyds",
+    ConfigNames: []string{".slyds.yaml"},
+    VendorDir:   "./.slyds-modules",
+    LockFile:    ".slyds.lock",
+    FetchCmd:    "slyds update",
+    ProjectURL:  "https://github.com/panyam/slyds",
+}
+
+// Find config with custom names (searches ".slyds.yaml" instead of "templar.yaml")
+configPath, err := tmplr.FindVendorConfigWithNames(dir, info.ConfigNames)
+
+// Load config with custom defaults (VendorDir defaults to ".slyds-modules" if not specified)
+config, err := tmplr.LoadVendorConfigWithDefaults(configPath, info)
+
+// Write generated content branded for your tool
+tmplr.WriteVendorReadmeFor(config.VendorDir, info)
+tmplr.WriteLockFileFor(lockPath, lock, info)
+```
+
+The original functions (`FindVendorConfig`, `LoadVendorConfig`, `WriteVendorReadme`, `WriteLockFile`) continue to work with templar's defaults — no breaking changes.
+
+### API Summary
+
+| Default (templar) | Configurable (embedding) |
+|---|---|
+| `FindVendorConfig(dir)` | `FindVendorConfigWithNames(dir, names)` |
+| `LoadVendorConfig(path)` | `LoadVendorConfigWithDefaults(path, info)` |
+| `WriteVendorReadme(dir)` | `WriteVendorReadmeFor(dir, info)` |
+| `WriteLockFile(path, lock)` | `WriteLockFileFor(path, lock, info)` |
+
+---
+
 ## Reference Examples
 
 - **excaliframe/site/templates/** - Simple site with goapplib dependency
