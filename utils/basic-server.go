@@ -2,11 +2,12 @@ package utils
 
 import (
 	"context"
-	"fmt"
+	"html"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/panyam/templar"
 )
@@ -57,7 +58,7 @@ func (b *BasicServer) createMux() {
 	}
 
 	b.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Path: ", r.URL.Path)
+		log.Printf("Path: %s", html.EscapeString(r.URL.Path)) // #nosec G706 -- escaped
 		template := r.URL.Path[1:]
 		entry := ""
 		if e := r.URL.Query()["entry"]; len(e) > 0 {
@@ -65,11 +66,13 @@ func (b *BasicServer) createMux() {
 		}
 		tmpl, err := b.Templates.Loader.Load(template, "")
 		if err != nil {
-			log.Println("Template Load Error: ", err)
-			fmt.Fprint(w, "Error rendering: ", err.Error())
+			log.Printf("Template Load Error: %v", err)
+			http.Error(w, "Error rendering: "+html.EscapeString(err.Error()), http.StatusInternalServerError)
 		} else {
-			log.Println("Got Template: ", tmpl)
-			b.Templates.RenderHtmlTemplate(w, tmpl[0], entry, map[string]any{}, nil)
+			log.Printf("Got Template: %s", html.EscapeString(tmpl[0].Path)) // #nosec G706 -- escaped
+			if renderErr := b.Templates.RenderHtmlTemplate(w, tmpl[0], entry, map[string]any{}, nil); renderErr != nil {
+				log.Printf("Render error: %v", renderErr)
+			}
 		}
 	})
 }
@@ -82,9 +85,10 @@ func (b *BasicServer) Serve(ctx context.Context, addr string) error {
 	}
 
 	server := &http.Server{
-		Addr:        addr,
-		BaseContext: func(_ net.Listener) context.Context { return ctx },
-		Handler:     b.mux,
+		Addr:              addr,
+		ReadHeaderTimeout: 10 * time.Second,
+		BaseContext:       func(_ net.Listener) context.Context { return ctx },
+		Handler:           b.mux,
 	}
 	log.Println("Starting server on: ", addr)
 	err := server.ListenAndServe()

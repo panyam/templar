@@ -54,14 +54,14 @@ func init() {
 	debugCmd.Flags().Bool("trace", false, "Trace path resolution for includes")
 
 	// Bind flags to viper
-	viper.BindPFlag("debug.path", debugCmd.Flags().Lookup("path"))
-	viper.BindPFlag("debug.verbose", debugCmd.Flags().Lookup("verbose"))
-	viper.BindPFlag("debug.defines", debugCmd.Flags().Lookup("defines"))
-	viper.BindPFlag("debug.refs", debugCmd.Flags().Lookup("refs"))
-	viper.BindPFlag("debug.cycles", debugCmd.Flags().Lookup("cycles"))
-	viper.BindPFlag("debug.dot", debugCmd.Flags().Lookup("dot"))
-	viper.BindPFlag("debug.flatten", debugCmd.Flags().Lookup("flatten"))
-	viper.BindPFlag("debug.trace", debugCmd.Flags().Lookup("trace"))
+	_ = viper.BindPFlag("debug.path", debugCmd.Flags().Lookup("path"))
+	_ = viper.BindPFlag("debug.verbose", debugCmd.Flags().Lookup("verbose"))
+	_ = viper.BindPFlag("debug.defines", debugCmd.Flags().Lookup("defines"))
+	_ = viper.BindPFlag("debug.refs", debugCmd.Flags().Lookup("refs"))
+	_ = viper.BindPFlag("debug.cycles", debugCmd.Flags().Lookup("cycles"))
+	_ = viper.BindPFlag("debug.dot", debugCmd.Flags().Lookup("dot"))
+	_ = viper.BindPFlag("debug.flatten", debugCmd.Flags().Lookup("flatten"))
+	_ = viper.BindPFlag("debug.trace", debugCmd.Flags().Lookup("trace"))
 
 	// Set defaults
 	viper.SetDefault("debug.path", ".")
@@ -343,7 +343,7 @@ func (g *DependencyGraph) analyzeTemplate(name string, fromDir string) (*Templat
 	}
 
 	// Read and parse the file
-	content, err := os.ReadFile(fullPath)
+	content, err := os.ReadFile(filepath.Clean(fullPath))
 	if err != nil {
 		return nil, fmt.Errorf("cannot read %s: %w", fullPath, err)
 	}

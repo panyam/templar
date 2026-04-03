@@ -139,7 +139,7 @@ func (g *FileSystemLoader) readTemplate(folder, name string, fsys fs.FS) ([]byte
 	if err != nil || info.IsDir() {
 		return nil, "", fmt.Errorf("not found: %s", fname)
 	}
-	data, err := os.ReadFile(fname)
+	data, err := os.ReadFile(filepath.Clean(fname))
 	return data, fname, err
 }
 

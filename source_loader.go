@@ -51,7 +51,7 @@ func LoadVendorConfig(path string) (*VendorConfig, error) {
 // defaults from the given ToolInfo. Embedding applications use this to set their
 // own default vendor directory when the config file doesn't specify one.
 func LoadVendorConfigWithDefaults(path string, info ToolInfo) (*VendorConfig, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}

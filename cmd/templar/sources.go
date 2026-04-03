@@ -78,6 +78,6 @@ func runSources(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, source.URL, source.Ref, status)
 	}
 
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }

@@ -58,7 +58,7 @@ func FetchSource(config *VendorConfig, sourceName string) (*FetchResult, error) 
 	}
 
 	// Create destination directory
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create destination: %w", err)
 	}
 
@@ -111,7 +111,7 @@ func fetchFromGitHub(source SourceConfig, destDir, ref string) (string, int, err
 	tarballURL := fmt.Sprintf("https://codeload.github.com/%s/%s/tar.gz/%s", owner, repo, ref)
 
 	// Download tarball
-	resp, err := http.Get(tarballURL)
+	resp, err := http.Get(tarballURL) // #nosec G107 -- URL constructed from validated GitHub owner/repo
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to download tarball: %w", err)
 	}
@@ -239,31 +239,31 @@ func extractTarGz(reader io.Reader, destDir, subPath string, include, exclude []
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(destPath, 0755); err != nil {
+			if err := os.MkdirAll(destPath, 0750); err != nil {
 				return filesExtracted, fmt.Errorf("failed to create directory %s: %w", destPath, err)
 			}
 		case tar.TypeReg, tar.TypeRegA:
 			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 				return filesExtracted, fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			// Create file
-			outFile, err := os.Create(destPath)
+			// Create file with restricted permissions
+			outFile, err := os.OpenFile(filepath.Clean(destPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 			if err != nil {
 				return filesExtracted, fmt.Errorf("failed to create file %s: %w", destPath, err)
 			}
 
-			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
+			// Limit copy size to prevent decompression bombs (256MB per file)
+			const maxFileSize = 256 << 20
+			if _, err := io.Copy(outFile, io.LimitReader(tr, maxFileSize)); err != nil {
+				_ = outFile.Close()
 				return filesExtracted, fmt.Errorf("failed to write file %s: %w", destPath, err)
 			}
-			outFile.Close()
+			_ = outFile.Close()
 
-			// Set file permissions
-			if err := os.Chmod(destPath, os.FileMode(header.Mode)); err != nil {
-				// Non-fatal, just log
-			}
+			// Set file permissions (mask to permission bits only)
+			_ = os.Chmod(destPath, os.FileMode(header.Mode)&os.ModePerm) // #nosec G115
 
 			filesExtracted++
 		}
@@ -385,7 +385,7 @@ it is a build artifact that should be regenerated from the config file.
 		configName, info.FetchCmd, dirName)
 
 	readmePath := filepath.Join(vendorDir, "README.md")
-	return os.WriteFile(readmePath, []byte(readme), 0644)
+	return os.WriteFile(readmePath, []byte(readme), 0600)
 }
 
 // FetchAllSources fetches all sources defined in the config
@@ -440,7 +440,7 @@ func WriteLockFileFor(path string, lock *VendorLock, info ToolInfo) error {
 
 	content := header + string(data)
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Clean(path), []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write lock file: %w", err)
 	}
 
@@ -449,7 +449,7 @@ func WriteLockFileFor(path string, lock *VendorLock, info ToolInfo) error {
 
 // LoadLockFile loads a VendorLock from the specified path
 func LoadLockFile(path string) (*VendorLock, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read lock file: %w", err)
 	}

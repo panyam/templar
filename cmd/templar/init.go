@@ -44,7 +44,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create templates directory if it doesn't exist
-	if err := os.MkdirAll("templates", 0755); err != nil {
+	if err := os.MkdirAll("templates", 0750); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not create templates directory: %v\n", err)
 	}
 
@@ -73,7 +73,7 @@ search_paths:
   - ./templar_modules     # Then vendored dependencies
 `
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write templar.yaml: %w", err)
 	}
 

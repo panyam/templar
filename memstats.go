@@ -166,11 +166,11 @@ func NewMemDelta(from, to *MemSnapshot) *MemDelta {
 		FromName:         from.Name,
 		ToName:           to.Name,
 		Duration:         to.Timestamp.Sub(from.Timestamp),
-		AllocDelta:       int64(to.Alloc) - int64(from.Alloc),
-		TotalAllocDelta:  int64(to.TotalAlloc) - int64(from.TotalAlloc),
-		HeapObjectsDelta: int64(to.HeapObjects) - int64(from.HeapObjects),
-		HeapInuseDelta:   int64(to.HeapInuse) - int64(from.HeapInuse),
-		NumGCDelta:       int32(to.NumGC) - int32(from.NumGC),
+		AllocDelta:       int64(to.Alloc) - int64(from.Alloc),           // #nosec G115 -- runtime.MemStats values won't exceed int64 max
+		TotalAllocDelta:  int64(to.TotalAlloc) - int64(from.TotalAlloc), // #nosec G115
+		HeapObjectsDelta: int64(to.HeapObjects) - int64(from.HeapObjects), // #nosec G115
+		HeapInuseDelta:   int64(to.HeapInuse) - int64(from.HeapInuse),   // #nosec G115
+		NumGCDelta:       int32(to.NumGC) - int32(from.NumGC),           // #nosec G115
 	}
 }
 

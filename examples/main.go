@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/panyam/templar"
@@ -66,7 +67,7 @@ func main() {
 	})
 
 	// Example of using a loader list with fallbacks
-	err := os.MkdirAll("./output", 0755)
+	err := os.MkdirAll("./output", 0750)
 	if err != nil {
 		log.Fatal("Could not create directory: ", err)
 		panic(err)
@@ -92,7 +93,7 @@ func main() {
 }
 
 func openFile(outfile string) io.Writer {
-	out, err := os.Create(outfile)
+	out, err := os.OpenFile(filepath.Clean(outfile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		panic(err)
 	}
@@ -188,7 +189,9 @@ func exampleConditionalLoading(isMobile bool, group *templar.TemplateGroup, w io
 		// For this example, we'll just note that we could render it
 		fmt.Println("Template ready for rendering")
 
-		group.RenderHtmlTemplate(w, tmpl[0], "", data, nil)
+		if err := group.RenderHtmlTemplate(w, tmpl[0], "", data, nil); err != nil {
+			fmt.Printf("Error rendering template: %v\n", err)
+		}
 	}
 }
 

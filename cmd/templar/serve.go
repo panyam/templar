@@ -35,7 +35,7 @@ Examples:
 			TemplateDirs: templateDirs,
 			StaticDirs:   staticDirs,
 		}
-		b.Serve(nil, addr)
+		_ = b.Serve(nil, addr)
 	},
 }
 
@@ -45,9 +45,9 @@ func init() {
 	serveCmd.Flags().StringArrayP("static", "s", nil, "Static directories in format <http_prefix>:<local_folder> (can be repeated)")
 
 	// Bind flags to viper
-	viper.BindPFlag("serve.addr", serveCmd.Flags().Lookup("addr"))
-	viper.BindPFlag("serve.templates", serveCmd.Flags().Lookup("template"))
-	viper.BindPFlag("serve.static", serveCmd.Flags().Lookup("static"))
+	_ = viper.BindPFlag("serve.addr", serveCmd.Flags().Lookup("addr"))
+	_ = viper.BindPFlag("serve.templates", serveCmd.Flags().Lookup("template"))
+	_ = viper.BindPFlag("serve.static", serveCmd.Flags().Lookup("static"))
 
 	// Set defaults
 	viper.SetDefault("serve.addr", ":7777")
