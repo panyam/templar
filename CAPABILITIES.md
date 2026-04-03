@@ -1,7 +1,7 @@
 # templar
 
 ## Version
-0.0.29
+0.0.35
 
 ## Provides
 - template-loading: Go template loader with dependency management
@@ -15,6 +15,10 @@
 - template-cli: CLI tool for template serving and debugging
 - dependency-visualization: GraphViz visualization of template dependency graph
 - llm-workflow-guidance: Generated files include AI/LLM-readable markers to prevent incorrect copying of templar_modules/
+- writable-fs: WritableFS interface extending fs.FS with Write/Mkdir/Remove/Rename for portable template storage
+- local-fs: LocalFS implementation of WritableFS backed by OS filesystem
+- mem-fs: MemFS implementation of WritableFS for in-memory testing and WASM
+- fs-backed-loader: FileSystemLoader.FileSystems field for loading templates from any fs.FS
 
 ## Module
 github.com/panyam/templar
