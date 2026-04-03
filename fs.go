@@ -2,6 +2,7 @@ package templar
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -10,9 +11,18 @@ import (
 
 // FileSystemLoader loads templates from the file system based on
 // a set of directories and file extensions.
+//
+// Each folder can optionally be backed by an fs.FS via the FileSystems slice.
+// When FileSystems[i] is set, Folders[i] is a relative path within that FS.
+// When FileSystems[i] is nil (or FileSystems is shorter than Folders),
+// Folders[i] is an OS filesystem path (original behavior).
 type FileSystemLoader struct {
 	// Folders is a list of directories to search for templates.
 	Folders []string
+
+	// FileSystems optionally backs each Folder with an fs.FS.
+	// FileSystems[i] serves Folders[i]. If nil or missing, OS filesystem is used.
+	FileSystems []fs.FS
 
 	// Extensions is a list of file extensions to consider as templates.
 	Extensions []string
@@ -44,53 +54,93 @@ func (g *FileSystemLoader) Load(name string, cwd string) (template []*Template, 
 		withoutext = name[:len(name)-len(ext)]
 	}
 	isRelative := strings.HasPrefix(name, "./") || strings.HasPrefix(name, "../")
-	folders := g.Folders
+
+	// Build search list: (folder, fs.FS or nil)
+	type searchEntry struct {
+		folder string
+		fsys   fs.FS // nil = use OS
+	}
+	var entries []searchEntry
+	for i, folder := range g.Folders {
+		var fsys fs.FS
+		if i < len(g.FileSystems) {
+			fsys = g.FileSystems[i]
+		}
+		entries = append(entries, searchEntry{folder, fsys})
+	}
+
 	if cwd != "" {
+		cwdEntry := searchEntry{folder: cwd} // cwd always uses OS (backward compat)
 		if isRelative {
-			// TODO - should we even look at other folders if it is a relative path?
-			// give cwd a higher priority
-			// folders = append([]string{cwd}, g.Folders...)
-			folders = []string{cwd}
+			entries = []searchEntry{cwdEntry}
 		} else {
-			// make it lower than other folders
-			folders = append(folders, cwd)
+			entries = append(entries, cwdEntry)
 		}
 	}
-	// log.Printf("Loading in CWD: %s, Name: %s, WithoutExt: %s, Ext: %s, Folders: %v", cwd, name, withoutext, ext, folders)
-	for _, folder := range folders {
-		folder, err := filepath.Abs(folder)
-		if err == nil {
-			folderinfo, err := os.Stat(folder)
-			if os.IsNotExist(err) {
-				slog.Debug("folder does not exist: ", "folder", folder)
-				continue
-			}
-			if !folderinfo.IsDir() {
-				slog.Debug("folder is not a directory: ", "folder", folder)
-				continue
-			}
-		} else {
-			slog.Debug("Invalid folder: ", "folder", folder)
+
+	for _, entry := range entries {
+		if !g.folderExists(entry.folder, entry.fsys) {
 			continue
 		}
 		for _, ext := range extensions {
-			// check if folder/name.ext exists
 			withext := fmt.Sprintf("%s.%s", withoutext, ext)
-			fname, err := filepath.Abs(filepath.Join(folder, withext))
+			contents, fullPath, err := g.readTemplate(entry.folder, withext, entry.fsys)
 			if err != nil {
-				slog.Info("fs template not found", "folder", folder, "ext", withext, "fname", fname, "error", err)
 				continue
 			}
-			info, err := os.Stat(fname)
-			if err == nil && !info.IsDir() {
-				// Found it so laod it
-				contents, err := os.ReadFile(fname)
-				return []*Template{{RawSource: contents, Path: fname}}, err
-			}
+			return []*Template{{RawSource: contents, Path: fullPath}}, nil
 		}
 	}
 	slog.Warn("Template not found", "name", name, "cwd", cwd)
 	return nil, TemplateNotFound
+}
+
+// folderExists checks if a folder exists, using fs.FS or OS as appropriate.
+func (g *FileSystemLoader) folderExists(folder string, fsys fs.FS) bool {
+	if fsys != nil {
+		info, err := fs.Stat(fsys, folder)
+		return err == nil && info.IsDir()
+	}
+	// OS path
+	abs, err := filepath.Abs(folder)
+	if err != nil {
+		slog.Debug("Invalid folder", "folder", folder)
+		return false
+	}
+	info, err := os.Stat(abs)
+	if os.IsNotExist(err) {
+		slog.Debug("folder does not exist", "folder", abs)
+		return false
+	}
+	if !info.IsDir() {
+		slog.Debug("folder is not a directory", "folder", abs)
+		return false
+	}
+	return true
+}
+
+// readTemplate reads a template file from within a folder, using fs.FS or OS.
+// Returns the file contents and the resolved path.
+func (g *FileSystemLoader) readTemplate(folder, name string, fsys fs.FS) ([]byte, string, error) {
+	if fsys != nil {
+		fpath := folder + "/" + name
+		data, err := fs.ReadFile(fsys, fpath)
+		if err != nil {
+			return nil, "", err
+		}
+		return data, fpath, nil
+	}
+	// OS path
+	fname, err := filepath.Abs(filepath.Join(folder, name))
+	if err != nil {
+		return nil, "", err
+	}
+	info, err := os.Stat(fname)
+	if err != nil || info.IsDir() {
+		return nil, "", fmt.Errorf("not found: %s", fname)
+	}
+	data, err := os.ReadFile(fname)
+	return data, fname, err
 }
 
 // LoaderList is a composite loader that tries multiple loaders in sequence
@@ -115,7 +165,6 @@ func (t *LoaderList) AddLoader(loader TemplateLoader) *LoaderList {
 // If cwd is provided, it's used for resolving relative paths.
 // Returns TemplateNotFound if no loader can find the template.
 func (t *LoaderList) Load(name string, cwd string) (matched []*Template, err error) {
-	// TODO - should we cache this?  Or is a CacheLoader just another type?
 	for _, loader := range t.loaders {
 		matched, err = loader.Load(name, cwd)
 		if err == nil && matched != nil && len(matched) > 0 {
@@ -126,7 +175,6 @@ func (t *LoaderList) Load(name string, cwd string) (matched []*Template, err err
 			break
 		}
 	}
-	// try loading with the default laoder too
 	if t.DefaultLoader != nil {
 		return t.DefaultLoader.Load(name, cwd)
 	}
