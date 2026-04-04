@@ -27,7 +27,7 @@ func (b *BasicServer) Init() {
 	}
 
 	log.Println("Registering template folders: ", b.TemplateDirs)
-	b.Templates.Loader = (&templar.LoaderList{}).AddLoader(templar.NewFileSystemLoader(b.TemplateDirs...))
+	b.Templates.Loader = (&templar.LoaderList{}).AddLoader(templar.NewFileSystemLoader(templar.LocalFolders(b.TemplateDirs...)...))
 	for _, fm := range b.FuncMaps {
 		b.Templates.AddFuncs(fm)
 	}

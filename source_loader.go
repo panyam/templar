@@ -37,6 +37,11 @@ type VendorConfig struct {
 	SearchPaths []string                `yaml:"search_paths"`
 	RequireLock bool                    `yaml:"require_lock"`
 
+	// FS is the filesystem for template resolution. Required.
+	// SearchPaths and VendorDir are paths within this FS.
+	// Use NewLocalFS(root) for local disk, NewMemFS() for tests.
+	FS WritableFS `yaml:"-"`
+
 	// configDir is the directory containing the config file (for resolving relative paths)
 	configDir string
 }
@@ -168,10 +173,16 @@ type SourceLoader struct {
 }
 
 // NewSourceLoader creates a new SourceLoader with the given configuration.
+// The config.FS field must be set — it's the filesystem for template resolution.
 func NewSourceLoader(config *VendorConfig) *SourceLoader {
-	// Build file system loader from search paths
+	// Build file system loader from search paths, backed by config.FS
+	var folders []FSFolder
+	for _, p := range config.SearchPaths {
+		folders = append(folders, FSFolder{FS: config.FS, Path: p})
+	}
+
 	fsLoader := &FileSystemLoader{
-		Folders:    config.SearchPaths,
+		Folders:    folders,
 		Extensions: []string{"tmpl", "tmplus", "html"},
 	}
 
@@ -214,20 +225,20 @@ func (s *SourceLoader) loadFromSource(pattern string, cwd string) ([]*Template, 
 		return nil, fmt.Errorf("source '%s' not defined in config (pattern: %s)", sourceName, pattern)
 	}
 
-	// Build the vendored path using flat structure
-	// VendorDir/sourceName/sourcePath
-	// e.g., templar_modules/goapplib/components/EntityListing.html
-	vendoredPath := filepath.Join(
-		s.config.VendorDir,
-		sourceName,
-		sourcePath,
-	)
+	// Build the vendored path: VendorDir/sourceName/sourcePath
+	vendoredDir := s.config.VendorDir + "/" + sourceName
+	vendoredBase := sourcePath
 
-	// Create a temporary FileSystemLoader to load from this specific path
+	// Extract directory part if sourcePath has subdirectories
+	if lastSlash := strings.LastIndex(sourcePath, "/"); lastSlash >= 0 {
+		vendoredDir = vendoredDir + "/" + sourcePath[:lastSlash]
+		vendoredBase = sourcePath[lastSlash+1:]
+	}
+
 	vendorLoader := &FileSystemLoader{
-		Folders:    []string{filepath.Dir(vendoredPath)},
+		Folders:    []FSFolder{{FS: s.config.FS, Path: vendoredDir}},
 		Extensions: s.extensions,
 	}
 
-	return vendorLoader.Load(filepath.Base(vendoredPath), "")
+	return vendorLoader.Load(vendoredBase, "")
 }

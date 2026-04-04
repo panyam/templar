@@ -33,8 +33,8 @@ func main() {
 
 	// Create a filesystem loader that searches multiple directories
 	group.Loader = templar.NewFileSystemLoader(
-		"templates/",
-		"templates/shared/",
+		templar.LocalFolder("templates/"),
+		templar.LocalFolder("templates/shared/"),
 	)
 
 	// Add custom functions
@@ -137,11 +137,11 @@ func exampleLoaderList(w io.Writer) {
 	loaderList := &templar.LoaderList{}
 
 	// Add loaders in priority order
-	loaderList.AddLoader(templar.NewFileSystemLoader("app/templates/"))
-	loaderList.AddLoader(templar.NewFileSystemLoader("shared/templates/"))
+	loaderList.AddLoader(templar.NewFileSystemLoader(templar.LocalFolder("app/templates/")))
+	loaderList.AddLoader(templar.NewFileSystemLoader(templar.LocalFolder("shared/templates/")))
 
 	// Set a default loader as final fallback
-	loaderList.DefaultLoader = templar.NewFileSystemLoader("default/templates/")
+	loaderList.DefaultLoader = templar.NewFileSystemLoader(templar.LocalFolder("default/templates/"))
 
 	fmt.Println("Loader list configured with fallback options")
 }
@@ -253,8 +253,8 @@ func exampleMemoryProfiling() {
 	// Create a template group
 	group := templar.NewTemplateGroup()
 	group.Loader = templar.NewFileSystemLoader(
-		"templates/",
-		"templates/shared/",
+		templar.LocalFolder("templates/"),
+		templar.LocalFolder("templates/shared/"),
 	)
 
 	// Add custom functions
