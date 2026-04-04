@@ -228,7 +228,7 @@ func runDebug(cmd *cobra.Command, args []string) {
 // flattenTemplate uses the actual templar library to flatten a template
 func flattenTemplate(templateFile string, searchPaths []string, trace bool) {
 	// Create loader
-	loader := templar.NewFileSystemLoader(searchPaths...)
+	loader := templar.NewFileSystemLoader(templar.LocalFolders(searchPaths...)...)
 
 	// Create a custom tracing loader if trace is enabled
 	var actualLoader templar.TemplateLoader = loader

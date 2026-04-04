@@ -256,9 +256,8 @@ func TestFileSystemLoaderWithMemFS(t *testing.T) {
 	m.SetFile("templates/greeting.html", []byte("<h1>Hello</h1>"))
 
 	loader := &FileSystemLoader{
-		Folders:     []string{"templates"},
-		FileSystems: []fs.FS{m},
-		Extensions:  []string{"html"},
+		Folders:    []FSFolder{{FS: m, Path: "templates"}},
+		Extensions: []string{"html"},
 	}
 
 	tmpl, err := loader.Load("greeting", "")
@@ -285,9 +284,11 @@ func TestFileSystemLoaderMixedFSAndOS(t *testing.T) {
 	m.SetFile("virtual/remote.html", []byte("from memory"))
 
 	loader := &FileSystemLoader{
-		Folders:     []string{dir, "virtual"},
-		FileSystems: []fs.FS{nil, m}, // nil = OS for first folder
-		Extensions:  []string{"html"},
+		Folders:    []FSFolder{
+			{Path: dir},         // nil FS = LocalFS auto-resolve
+			{FS: m, Path: "virtual"},
+		},
+		Extensions: []string{"html"},
 	}
 
 	// Load from OS folder
@@ -313,9 +314,8 @@ func TestFileSystemLoaderMixedFSAndOS(t *testing.T) {
 func TestFileSystemLoaderNotFound(t *testing.T) {
 	m := NewMemFS()
 	loader := &FileSystemLoader{
-		Folders:     []string{"templates"},
-		FileSystems: []fs.FS{m},
-		Extensions:  []string{"html"},
+		Folders:    []FSFolder{{FS: m, Path: "templates"}},
+		Extensions: []string{"html"},
 	}
 
 	_, err := loader.Load("nonexistent", "")
@@ -330,7 +330,7 @@ func TestFileSystemLoaderBackwardCompat(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "page.html"), []byte("old way"), 0644)
 
-	loader := NewFileSystemLoader(dir)
+	loader := NewFileSystemLoader(LocalFolder(dir))
 	tmpl, err := loader.Load("page", "")
 	if err != nil {
 		t.Fatalf("backward compat Load failed: %v", err)
