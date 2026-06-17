@@ -456,7 +456,6 @@ func TestVendoredLoader_IntegrationWithExtend(t *testing.T) {
 
 // TestSourceLoader_RelativePathsInVendoredTemplates tests that relative paths within vendored templates resolve correctly
 func TestSourceLoader_RelativePathsInVendoredTemplates(t *testing.T) {
-	t.Skip("TODO: relative path resolution needs FS-aware cwd handling")
 	tmpDir, err := os.MkdirTemp("", "templar-vendor-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -534,6 +533,80 @@ func TestSourceLoader_RelativePathsInVendoredTemplates(t *testing.T) {
 	}
 	if !strings.Contains(result, "<button>") {
 		t.Errorf("Expected button, got: %s", result)
+	}
+}
+
+// TestSourceLoader_LocalAndVendoredSameBasename reproduces issue #5 case 2:
+// a local template and a @vendor-namespaced template with the same base name
+// must not collide on Template.Path. Before the fix, both ended up with
+// Path="BasePage.html", tripping Walker's cycle guard and silently dropping
+// the namespaced load.
+func TestSourceLoader_LocalAndVendoredSameBasename(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-vendor-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	localDir := filepath.Join(tmpDir, "templates")
+	vendorDir := filepath.Join(tmpDir, "templar_modules", "goapplib")
+	if err := os.MkdirAll(localDir, 0755); err != nil {
+		t.Fatalf("Failed to create local dir: %v", err)
+	}
+	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+		t.Fatalf("Failed to create vendor dir: %v", err)
+	}
+
+	// Vendored BasePage defines a template under its namespace.
+	vendoredBase := `{{ define "BasePage" }}VENDORED-BASE{{ end }}`
+	if err := os.WriteFile(filepath.Join(vendorDir, "BasePage.html"), []byte(vendoredBase), 0644); err != nil {
+		t.Fatalf("Failed to write vendored BasePage.html: %v", err)
+	}
+
+	// Local BasePage with the SAME basename — namespaces the vendored one.
+	// Pre-fix this collided on Path with the vendored copy, tripping
+	// Walker's cycle guard and silently skipping the namespace load.
+	localBase := `{{# namespace "V" "@goapplib/BasePage.html" #}}
+{{ define "LocalWrapper" }}LOCAL[{{ template "V:BasePage" . }}]{{ end }}`
+	if err := os.WriteFile(filepath.Join(localDir, "BasePage.html"), []byte(localBase), 0644); err != nil {
+		t.Fatalf("Failed to write local BasePage.html: %v", err)
+	}
+
+	// Page template that pulls in the local BasePage and renders LocalWrapper.
+	pageContent := `{{# include "BasePage.html" #}}
+{{ define "page" }}{{ template "LocalWrapper" . }}{{ end }}`
+	if err := os.WriteFile(filepath.Join(localDir, "page.html"), []byte(pageContent), 0644); err != nil {
+		t.Fatalf("Failed to write page.html: %v", err)
+	}
+
+	config := &VendorConfig{
+		Sources: map[string]SourceConfig{
+			"goapplib": {URL: "github.com/panyam/goapplib", Ref: "main"},
+		},
+		VendorDir:   filepath.Join(tmpDir, "templar_modules"),
+		SearchPaths: []string{localDir},
+	}
+
+	loader := NewSourceLoader(config)
+	group := NewTemplateGroup()
+	group.Loader = loader
+
+	templates, err := group.Loader.Load("page.html", localDir)
+	if err != nil {
+		t.Fatalf("Failed to load page.html: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := group.RenderHtmlTemplate(&buf, templates[0], "page", nil, nil); err != nil {
+		t.Fatalf("Failed to render: %v", err)
+	}
+
+	result := buf.String()
+	// If the cycle guard incorrectly skipped the namespace, V:BasePage
+	// wouldn't be defined and the output wouldn't contain VENDORED-BASE.
+	expected := "LOCAL[VENDORED-BASE]"
+	if !strings.Contains(result, expected) {
+		t.Errorf("Expected %q from namespaced BasePage, got: %s", expected, result)
 	}
 }
 

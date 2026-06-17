@@ -173,8 +173,14 @@ type SourceLoader struct {
 }
 
 // NewSourceLoader creates a new SourceLoader with the given configuration.
-// The config.FS field must be set — it's the filesystem for template resolution.
+// If config.FS is nil, it defaults to a LocalFS rooted at "/" so absolute
+// search paths and vendor dirs resolve consistently and loaded template
+// Paths are absolute (avoiding collisions between local and vendored
+// templates that share a base name).
 func NewSourceLoader(config *VendorConfig) *SourceLoader {
+	if config.FS == nil {
+		config.FS = NewLocalFS("/")
+	}
 	// Build file system loader from search paths, backed by config.FS
 	var folders []FSFolder
 	for _, p := range config.SearchPaths {
