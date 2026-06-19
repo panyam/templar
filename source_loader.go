@@ -66,8 +66,15 @@ func LoadVendorConfigWithDefaults(path string, info ToolInfo) (*VendorConfig, er
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Store the config directory for resolving relative paths
-	config.configDir = filepath.Dir(path)
+	// Store the config directory for resolving relative paths. Absolutize
+	// so ResolveVendorDir/ResolveSearchPaths always return absolute paths,
+	// which compose correctly with NewLocalFS("/") regardless of how the
+	// caller phrased path.
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve absolute config path: %w", err)
+	}
+	config.configDir = filepath.Dir(absPath)
 
 	// Apply defaults from ToolInfo
 	if config.VendorDir == "" {

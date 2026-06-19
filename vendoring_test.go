@@ -773,6 +773,67 @@ sources:
 	}
 }
 
+// TestNewSourceLoaderFromConfig_RelativeConfigPath reproduces issue #7:
+// when a caller passes a relative configPath, LoadVendorConfigWithDefaults
+// derives a relative configDir, so ResolveSearchPaths/ResolveVendorDir
+// return relative paths. Combined with FS=NewLocalFS("/") (added in v0.1.1),
+// the loader looks up "<cwd-of-config>/<template>" at the filesystem root
+// and fails. Verify the loader works regardless of how the caller phrased
+// the configPath.
+func TestNewSourceLoaderFromConfig_RelativeConfigPath(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "templar-relpath-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	templatesDir := filepath.Join(tmpDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("Failed to create templates dir: %v", err)
+	}
+
+	pageContent := `{{ define "page" }}hello-from-relative-config{{ end }}`
+	if err := os.WriteFile(filepath.Join(templatesDir, "page.html"), []byte(pageContent), 0644); err != nil {
+		t.Fatalf("Failed to write page.html: %v", err)
+	}
+
+	configContent := `
+sources: {}
+vendor_dir: ./templar_modules
+search_paths:
+  - ./templates
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "templar.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write templar.yaml: %v", err)
+	}
+
+	// Chdir into tmpDir so we can pass a relative configPath, matching how
+	// real callers like lilbattle's webapp.go pass "./web/templates/templar.yaml".
+	t.Chdir(tmpDir)
+
+	loader, err := NewSourceLoaderFromConfig("./templar.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create loader from relative config path: %v", err)
+	}
+
+	group := NewTemplateGroup()
+	group.Loader = loader
+
+	templates, err := group.Loader.Load("page.html", "")
+	if err != nil {
+		t.Fatalf("Failed to load page.html via relative-config loader: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := group.RenderHtmlTemplate(&buf, templates[0], "page", nil, nil); err != nil {
+		t.Fatalf("Failed to render: %v", err)
+	}
+
+	if !strings.Contains(buf.String(), "hello-from-relative-config") {
+		t.Errorf("Expected 'hello-from-relative-config', got: %s", buf.String())
+	}
+}
+
 // TestNewSourceLoaderFromConfig tests creating a SourceLoader from a config file
 func TestNewSourceLoaderFromConfig(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "templar-config-test-*")
