@@ -1,10 +1,13 @@
 package templar
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"testing/fstest"
 )
 
 // --- WritableFS interface compliance tests ---
@@ -174,22 +177,77 @@ func TestMemFSRename(t *testing.T) {
 	}
 }
 
-// TestMemFSReadDir verifies directory listing within MemFS.
+// TestMemFSReadDir verifies that ReadDir lists a directory's immediate children, files and
+// subdirectories both, as os.ReadDir does. The nested file itself must not appear (issue 9).
 func TestMemFSReadDir(t *testing.T) {
 	m := NewMemFS()
 	m.SetFile("slides/a.html", []byte("a"))
 	m.SetFile("slides/b.html", []byte("b"))
-	m.SetFile("slides/sub/c.html", []byte("c")) // nested, should NOT appear
+	m.SetFile("slides/sub/c.html", []byte("c"))
 
 	entries, err := m.ReadDir("slides")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 {
-		t.Fatalf("got %d entries, want 2 (a.html, b.html)", len(entries))
+	var got []string
+	for _, e := range entries {
+		got = append(got, fmt.Sprintf("%s:%v", e.Name(), e.IsDir()))
 	}
-	if entries[0].Name() != "a.html" {
-		t.Errorf("entries[0] = %q, want a.html", entries[0].Name())
+	if want := "[a.html:false b.html:false sub:true]"; fmt.Sprint(got) != want {
+		t.Errorf("ReadDir(slides) = %v, want %s", got, want)
+	}
+}
+
+// TestMemFSWalkDirSeesNestedFiles is issue 9 as a caller hits it: a walk from the root must
+// reach files below the first level.
+func TestMemFSWalkDirSeesNestedFiles(t *testing.T) {
+	m := NewMemFS()
+	m.SetFile("top.html", []byte("t"))
+	m.SetFile("slides/sub/c.html", []byte("c"))
+
+	var files []string
+	err := fs.WalkDir(m, ".", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			files = append(files, p)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(files) != "[slides/sub/c.html top.html]" {
+		t.Errorf("WalkDir found %v", files)
+	}
+}
+
+func TestMemFSConformance(t *testing.T) {
+	m := NewMemFS()
+	m.SetFile("top.html", []byte("t"))
+	m.SetFile("slides/a.html", []byte("a"))
+	m.SetFile("slides/sub/c.html", []byte("c"))
+	if err := fstest.TestFS(m, "top.html", "slides/a.html", "slides/sub/c.html"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestMemFSConcurrentWrites checks MemFS is safe to write while it is read, which the
+// goutils/memfs it wraps promises and a wasm host relies on.
+func TestMemFSConcurrentWrites(t *testing.T) {
+	m := NewMemFS()
+	var wg sync.WaitGroup
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for i := 0; i < 500; i++ {
+				m.SetFile(fmt.Sprintf("w%d/f%d.html", w, i%20), []byte("x"))
+				_, _ = m.ReadDir(fmt.Sprintf("w%d", w))
+			}
+		}(w)
+	}
+	wg.Wait()
+	if m.FileCount() != 80 {
+		t.Errorf("FileCount = %d, want 80", m.FileCount())
 	}
 }
 

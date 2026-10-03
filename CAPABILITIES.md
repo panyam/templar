@@ -17,7 +17,7 @@
 - llm-workflow-guidance: Generated files include AI/LLM-readable markers to prevent incorrect copying of templar_modules/
 - writable-fs: WritableFS interface extending fs.FS with Write/Mkdir/Remove/Rename for portable template storage
 - local-fs: LocalFS implementation of WritableFS backed by OS filesystem
-- mem-fs: MemFS implementation of WritableFS for in-memory testing and WASM
+- mem-fs: MemFS implementation of WritableFS for in-memory testing and WASM, a wrapper over goutils/memfs (concurrency-safe, nested directories)
 - fs-backed-loader: FileSystemLoader.FileSystems field for loading templates from any fs.FS
 
 ## Module
