@@ -1,7 +1,7 @@
 # templar
 
 ## Version
-0.0.35
+0.1.3
 
 ## Provides
 - template-loading: Go template loader with dependency management
